@@ -1,0 +1,45 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Pinocchio variant of `oracle-adapter`, kept as an independent workspace so it
+# can carry its own dependency set and profile. Its only reason to exist is to
+# measure deploy rent against the Anchor build of the same program.
+[workspace]
+
+[package]
+name = "oracle-adapter-pinocchio"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[features]
+# Mirrors the Anchor variant: lets a caller link this in as a plain library
+# without pulling a second entrypoint into the binary.
+no-entrypoint = []
+
+[dependencies]
+pinocchio = "0.11.2"
+pinocchio-pubkey = "0.3.0"
+pinocchio-system = "0.6.1"
+solana-address = { version = "2.7", features = ["syscalls"] }
+
+[profile.release]
+overflow-checks = true
+lto = "fat"
+codegen-units = 1
+opt-level = "z"
+
+[dev-dependencies]
+anchor-lang = "0.31.1"
+bs58 = "0.5.1"
+oracle-adapter = { path = "../../programs/oracle-adapter", features = ["no-entrypoint"] }
+proptest = "1.11.0"
+sha2 = "0.11.0"
+# `Address::find_program_address` is compiled in for free on the `solana`
+# target, where it is a syscall. Off-target it needs a curve25519
+# implementation, which is only wanted for host tests -- pulling dalek into the
+# normal dependency set would put weight in the artifact whose size is the
+# entire point of this crate.
+solana-address = { version = "2.7", features = ["curve25519"] }

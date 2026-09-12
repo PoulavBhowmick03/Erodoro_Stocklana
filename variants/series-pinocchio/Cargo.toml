@@ -1,0 +1,58 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Pinocchio variant of `series`. An independent workspace, like its three
+# siblings, so it can carry its own dependency set and profile.
+#
+# This one is different in a way worth stating at the top: it **links the money
+# math rather than reimplementing it**.
+#
+# `common/src/math.rs` is 714 lines with zero references to Anchor -- the
+# settlement partition, the redeem pro-rata, the shortfall haircut, the strike
+# adjustment. The other three ports rewrote their logic and proved equivalence
+# with differential tests. Doing that here would buy nothing and would risk the
+# one class of bug differential fuzzing is weakest against: both sides wrong in
+# the same way, because one was written by reading the other. Linking makes the
+# arithmetic identical by construction.
+#
+# The cost is that `common`'s error enum is an Anchor `#[error_code]`, so
+# `anchor-lang` comes along for it -- roughly 10 KB, about 0.07 SOL. That is the
+# right trade on a program that holds collateral, and it is the only place any
+# of these ports takes an Anchor dependency on purpose.
+[workspace]
+
+[package]
+name = "series-pinocchio"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+
+[lib]
+# `lib` until the entrypoint lands; a `cdylib` without one cannot link.
+crate-type = ["lib"]
+
+[features]
+no-entrypoint = []
+
+[dependencies]
+pinocchio = "0.11.2"
+pinocchio-pubkey = "0.3.0"
+pinocchio-system = "0.6.1"
+solana-address = { version = "2.7", features = ["syscalls"] }
+# The arithmetic, not a copy of it.
+common = { path = "../../common" }
+
+[profile.release]
+overflow-checks = true
+lto = "fat"
+codegen-units = 1
+opt-level = "z"
+
+[dev-dependencies]
+anchor-lang = "0.31.1"
+# Linked so the conformance tests can drive both implementations through the
+# same inputs rather than comparing against transcribed constants.
+series = { path = "../../programs/series", features = ["no-entrypoint"] }
+proptest = "1.11.0"
+pinocchio = "0.11.2"
+sha2 = "0.11.0"
+solana-address = { version = "2.7", features = ["curve25519"] }

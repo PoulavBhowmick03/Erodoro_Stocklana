@@ -1,0 +1,57 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Pinocchio variant of `market`, an independent workspace for the same reason
+# as its two siblings: deploy rent is `(bytes + 173) * 6960` lamports, so the
+# framework is a measurable line item.
+#
+# `market` is the third port and the awkward one. It is the only program here
+# that talks to MagicBlock, and the delegation handshake -- `delegate`,
+# `commit`, `undelegate`, plus the `process_undelegation` callback the rollup
+# invokes back -- is protocol surface that has to be reproduced by hand rather
+# than trimmed away. The SDK's own `cpi` module has no Anchor coupling, which is
+# what makes that possible, but it is built on `solana-account-info` rather than
+# Pinocchio's `AccountView`, so the instructions are rebuilt here instead of
+# being called through.
+[workspace]
+
+[package]
+name = "market-pinocchio"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[features]
+no-entrypoint = []
+
+[dependencies]
+pinocchio = "0.11.2"
+pinocchio-pubkey = "0.3.0"
+pinocchio-system = "0.6.1"
+solana-address = { version = "2.7", features = ["syscalls"] }
+
+[profile.release]
+overflow-checks = true
+lto = "fat"
+codegen-units = 1
+opt-level = "z"
+
+[dev-dependencies]
+anchor-lang = "1"
+# Linked so the conformance tests can drive both matching engines through the
+# same operation sequences instead of comparing against transcribed constants.
+market = { path = "../../programs/market", features = ["no-entrypoint"] }
+proptest = "1.11.0"
+# Linked so `tests/delegation_wire.rs` can compare the hand-built payloads
+# against the SDK that owns the format. This is the whole mitigation for the
+# bincode variant index being positional and unversioned -- bump the SDK, and
+# the test goes red instead of the program silently invoking something else.
+ephemeral-rollups-sdk = { version = "0.16.2", features = ["anchor"] }
+magicblock-magic-program-api = "0.8.8"
+bincode = "1.3"
+borsh = "1"
+solana-program = "2"
+sha2 = "0.11.0"
+solana-address = { version = "2.7", features = ["curve25519"] }

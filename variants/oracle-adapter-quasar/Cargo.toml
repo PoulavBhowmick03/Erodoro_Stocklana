@@ -1,0 +1,39 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Quasar variant of `oracle-adapter`. Independent workspace, same reason as the
+# Pinocchio one: measure deploy rent against the Anchor build.
+#
+# Quasar is beta and unaudited ("APIs may change. Use at your own risk"), and it
+# is not published to crates.io, so this is pinned to a git revision rather than
+# a semver range.
+[workspace]
+
+# NOTE: this crate does not currently compile -- see README.md. Two v0.1.0 gaps
+# block it: no accessor for a foreign-owned account's raw bytes, and no
+# `SchemaWrite` for signed Pod types (`i64` instruction args).
+
+[package]
+name = "oracle-adapter-quasar"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+doctest = false
+
+[features]
+no-entrypoint = []
+idl-build = ["quasar-lang/idl-build"]
+
+[dependencies]
+quasar-lang = { git = "https://github.com/blueshift-gg/quasar", package = "quasar-lang" }
+
+[dev-dependencies]
+sha2 = "0.11.0"
+
+[profile.release]
+overflow-checks = true
+lto = "fat"
+codegen-units = 1
+opt-level = "z"
