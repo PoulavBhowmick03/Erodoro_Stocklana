@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: Apache-2.0
+[package]
+name = "market"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Order book for a series' P and N legs, with an ephemeral-rollup hot path."
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "market"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+
+# NOT the workspace anchor version. The ephemeral-rollups SDK is built
+# against solana-account-info 3.x, which means anchor-lang 1.x; the other
+# programs are on 0.31.1 and audited there, and upgrading them to chase this
+# dependency would be a far larger change than it is worth.
+#
+# This is safe because `market` is standalone: it depends on no other crate in
+# this workspace and exchanges no Rust types with them, only account data
+# through the chain. Cargo keeps both anchor versions side by side.
+[dependencies]
+anchor-lang = "1"
+# Default features stay on: anchor-spl's `idl-build` references
+# `token_interface` unconditionally, so trimming them breaks IDL generation
+# for no size gain (measured: 40 bytes).
+anchor-spl = "1"
+ephemeral-rollups-sdk = { version = "0.16.2", features = ["anchor"] }

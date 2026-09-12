@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: Apache-2.0
+[package]
+name = "test-transfer-hook"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Test-only Token-2022 transfer hook that records every transfer it sees."
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "test_transfer_hook"
+
+[features]
+default = []
+no-entrypoint = []
+# Declared so the workspace-wide `--features no-idl` in `make build` applies
+# uniformly. This program emits no IDL-account handlers either way; the flag
+# would otherwise fail the build here alone.
+no-idl = []
+
+[dependencies]
+solana-program = "2.3"
+solana-system-interface = { version = "1.0", features = ["bincode"] }
+spl-discriminator = "0.4"
+spl-pod = "0.5"
+spl-tlv-account-resolution = "0.10"
+spl-transfer-hook-interface = "0.10"
+spl-type-length-value = "0.8"
