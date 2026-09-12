@@ -1,0 +1,30 @@
+# SPDX-License-Identifier: Apache-2.0
+[package]
+name = "factory"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Creates and registers canonical option series."
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "factory"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = [
+    "anchor-lang/idl-build",
+    "anchor-spl/idl-build",
+    "common/idl-build",
+]
+
+[dependencies]
+anchor-lang = { workspace = true }
+anchor-spl = { workspace = true, features = ["token_2022", "token_2022_extensions"] }
+common = { workspace = true }
+oracle-adapter = { workspace = true }
+series = { path = "../series", features = ["cpi"] }
