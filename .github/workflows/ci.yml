@@ -1,0 +1,251 @@
+# SPDX-License-Identifier: Apache-2.0
+name: ci
+
+on:
+  push:
+    branches: [main, mainnet]
+  pull_request:
+
+env:
+  # The platform-tools bundled with the Solana CLI ships rustc 1.84, which
+  # cannot parse several crates in the dependency graph that require edition
+  # 2024. See the comment at the top of the Makefile.
+  TOOLS_VERSION: v1.54
+  SOLANA_VERSION: 3.0.13
+  ANCHOR_VERSION: 0.31.1
+
+jobs:
+  promotion:
+    name: mainnet is promoted from main
+    if: github.event_name == 'push' && github.ref_name == 'mainnet'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: git fetch origin main
+      - name: reject Mainnet-only product commits
+        run: git merge-base --is-ancestor HEAD origin/main
+
+  native:
+    name: unit and property tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --workspace --all-targets
+      - run: cargo test --workspace
+
+  variants:
+    name: framework variants
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      # Each is its own workspace, so `--workspace` above reaches none of them.
+      # All three carry differential suites that link the Anchor crate and
+      # assert the two builds agree -- on decoding, on account layout, on the
+      # order every check fires in, and for `market` on the MagicBlock payloads,
+      # whose bincode enum index is positional and unversioned.
+      - run: cargo test --manifest-path variants/oracle-adapter-pinocchio/Cargo.toml
+      - run: cargo test --manifest-path variants/factory-pinocchio/Cargo.toml
+      - run: cargo test --manifest-path variants/market-pinocchio/Cargo.toml
+      - run: cargo test --manifest-path variants/series-pinocchio/Cargo.toml
+
+  web:
+    name: front end and walkthrough
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      # `build` runs the account-map and Pyth-decoder gates through prebuild,
+      # then produces the static export the walkthrough is driven against.
+      - run: pnpm build
+      - run: pnpm exec playwright install --with-deps chromium
+      # All ten steps in a real browser: the route hops the tour performs
+      # itself, the highlight landing on each anchor, Previous, Skip, and that
+      # a dismissed tour stays dismissed. No cluster needed, because every page
+      # it visits renders its chrome before any RPC returns.
+      - run: pnpm test:tour
+
+  web-mainnet:
+    name: mainnet static build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    env:
+      # Configuration-only CI values. They prove that the same source compiles
+      # with all demo capabilities disabled; deployments/mainnet.json remains
+      # not-ready and no deployment job consumes these values.
+      NEXT_PUBLIC_NETWORK: mainnet-beta
+      NEXT_PUBLIC_MAINNET_RPC_URL: https://api.mainnet-beta.solana.com
+      NEXT_PUBLIC_EPHEMERAL_RPC_URL: https://mainnet-ci.invalid
+      NEXT_PUBLIC_ROLLUP_VALIDATOR: "11111111111111111111111111111111"
+      NEXT_PUBLIC_SERIES_PROGRAM_ID: AJPJRQQpgT461SaiBvZY4ixdS6S5R2QYQsod6Qdpm8p9
+      NEXT_PUBLIC_FACTORY_PROGRAM_ID: CRBW3Et1ogjExdSnFty3gM4zyGoN7He5zfqkaieZqQkZ
+      NEXT_PUBLIC_ORACLE_ADAPTER_PROGRAM_ID: FMByTd4JrYycj1V7hVKHqjHnLZ5D4rwyYYscSqYiuGfz
+      NEXT_PUBLIC_MARKET_PROGRAM_ID: FYAhsmE2JCxuAFhq2asH2wC4i7ZaUE7kwRbcgzM3AwgC
+      NEXT_PUBLIC_MANIFEST_PROGRAM_ID: HTBtzS8fV9Bw1pGRQZEZqYtu49jJLLUjU5msQWaUKfBE
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: mainnet surfaces contain no demo actions
+        run: |
+          grep -q "Open markets" out/index.html
+          grep -q "Demo setup unavailable" out/mint.html
+          grep -q "Multisig-controlled listings" out/admin/registry.html
+
+  build:
+    name: sbf build and client gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: install solana
+        run: |
+          sh -c "$(curl -sSfL https://release.anza.xyz/v${SOLANA_VERSION}/install)"
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> "$GITHUB_PATH"
+      - name: install anchor
+        run: |
+          cargo install --git https://github.com/coral-xyz/anchor avm --locked --force
+          avm install "$ANCHOR_VERSION"
+          avm use "$ANCHOR_VERSION"
+      - run: solana-keygen new --no-bip39-passphrase --silent --force
+      - run: pnpm install --frozen-lockfile
+      - run: make build
+      - run: pnpm check:program-artifacts
+      - run: make idl
+      # The IDL is the contract between the programs and the front end, and it
+      # is the thing that rots silently. Regenerate it above, then check the
+      # client still matches: account maps against the fresh IDLs, and the
+      # browser's Pyth decoder against the same golden vectors the Rust one
+      # uses.
+      - run: cp target/idl/*.json web/lib/idl/
+      - run: node web/scripts/check-accounts.mjs
+      - run: node web/scripts/check-oracle-decoder.mjs
+      # The invariant monitor's own alarms. A monitor nobody has seen fire is
+      # indistinguishable from one that cannot -- which is exactly how
+      # `make pinocchio-oracle` spent weeks reporting success while running
+      # nothing.
+      - run: pnpm monitor:self-test
+      # The shared error table is generated from `common/src/error.rs` and
+      # committed. Anchor numbers `#[error_code]` variants from 6000 by
+      # declaration order, so moving one renumbers every code after it -- and
+      # `SECURITY.md` says that ordering must never change. Regenerating here
+      # makes a reorder a red build rather than a client decoding failures
+      # against a table that has quietly shifted.
+      - run: node web/scripts/gen-error-table.mjs --check
+      - run: node web/scripts/check-error-decoder.mts
+      - name: idls in the repo match the ones just generated
+        run: git diff --exit-code web/lib/idl/
+
+  validator:
+    name: programs executing on a validator
+    runs-on: ubuntu-latest
+    # The slowest job by far: it builds five programs to SBF, three variants,
+    # and stands up a fresh validator per tier. Worth it -- every bug this
+    # repo's Pinocchio work turned up was invisible to the host suites and
+    # visible here. A stack-frame overflow that `cargo build-sbf` reported and
+    # then exited 0 on, a suite that had been silently skipping for weeks, and
+    # a program that faulted on entry while 22 host tests stayed green.
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: install solana
+        run: |
+          sh -c "$(curl -sSfL https://release.anza.xyz/v${SOLANA_VERSION}/install)"
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> "$GITHUB_PATH"
+      - name: install anchor
+        run: |
+          cargo install --git https://github.com/coral-xyz/anchor avm --locked --force
+          avm install "$ANCHOR_VERSION"
+          avm use "$ANCHOR_VERSION"
+      - run: solana-keygen new --no-bip39-passphrase --silent --force
+      - run: pnpm install --frozen-lockfile
+      - run: make build
+      # Through the make target, not a loop: `make variants` carries
+      # SIZE_RUSTFLAGS, and a variant built without them is 0.1018 SOL larger
+      # than the one that gets deployed.
+      - run: make variants
+      # The first of the two reasons these tiers were pulled from CI: the Pyth
+      # fixtures carry publish times relative to when they were taken, so a
+      # committed set goes stale on its own schedule and takes the suite red
+      # with it. Regenerating here means the times are always minutes old, and
+      # the tiers pass or fail on the diff rather than on the calendar.
+      - name: refresh the Pyth fixtures
+        run: pnpm pyth:fixture
+      # The second reason was port collisions. Each tier now has its own RPC
+      # port (8999 / 8998 / 8997) and its own ledger directory, and Anchor.toml
+      # already moves gossip off 8000 -- so on a clean runner there is nothing
+      # to collide with.
+      - run: make pinocchio-oracle
+      - run: make pinocchio-factory
+      - run: make pinocchio-market
+      # `make build` passes `--no-idl`, so it writes no IDL at all, and the e2e
+      # suite loads `target/idl/*.json` to construct its clients. Without this
+      # the suite fails both `before all` hooks on ENOENT and reports 0 passing,
+      # 2 failing. Only the `build` job ran `make idl` before now, and this job
+      # never got far enough to notice.
+      - run: make idl
+      - run: make e2e
+
+# Not run here: the tier that needs a MagicBlock stack.
+#
+#   make rollup             7  a real MagicBlock delegation
+#   make devnet / devnet-market  live cluster
+#
+# The `validator` job above runs the rest. They were pulled from CI once, for
+# three reasons; two of them are now fixed rather than tolerated:
+#
+#   The Pyth fixtures carry publish times relative to when they were taken, so
+#   a committed set went stale on its own schedule and took the suite red with
+#   it. The job regenerates them first, so the tiers fail on the diff rather
+#   than on the calendar.
+#
+#   Port collisions. Each tier now has its own RPC port and ledger directory,
+#   and Anchor.toml already moves gossip off 8000.
+#
+#   The rollup tier needs a MagicBlock stack alongside, which a hosted runner
+#   does not have. That one is unsolved, so `make rollup` stays local, and the
+#   four delegation instructions in `market` remain the part of this repo that
+#   nothing executes automatically.
+#
+# Putting them back was not cosmetic. Every bug the Pinocchio ports turned up
+# was invisible to the host suites: a rent bug caught by `make pinocchio-oracle`
+# and nothing else, that same suite silently skipping every test for weeks, and
+# a `market` build that faulted on entry while 22 host tests stayed green.

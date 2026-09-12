@@ -1,0 +1,50 @@
+{
+  "name": "erodoro",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "private": true,
+  "//packageManager": "Declared because Cloudflare Workers Builds infers the package manager from this field. Without it the build image picked its own pnpm, and an older pnpm refuses a lockfileVersion 9 lockfile outright: ERR_PNPM_LOCKFILE_BREAKING_CHANGE, before the build command ever runs. web/package.json already had this; the root did not, and the root is where the build starts.",
+  "packageManager": "pnpm@10.34.5",
+  "engines": {
+    "node": ">=20.9"
+  },
+  "scripts": {
+    "build": "pnpm --dir web install --no-frozen-lockfile && pnpm --dir web build",
+    "postinstall": "node scripts/cf-build.mjs",
+    "dev": "pnpm --dir web dev",
+    "start": "npx --yes serve web/out -l 3000",
+    "e2e": "ts-mocha -p ./tsconfig.json -t 900000 tests/e2e.ts tests/transfer-hook.ts",
+    "devnet": "ts-mocha -p ./tsconfig.json -t 600000 tests/devnet-oracle.ts",
+    "hook": "ts-mocha -p ./tsconfig.json -t 600000 tests/transfer-hook.ts",
+    "preflight": "ts-mocha --help >/dev/null 2>&1; node scripts/preflight.ts",
+    "migrate:devnet-admin": "node scripts/migrate-devnet-factory-admin.mjs",
+    "pyth:fixture": "node scripts/fetch-pyth-fixture.ts",
+    "devnet:market": "ts-mocha -p ./tsconfig.json -t 600000 tests/devnet-market.ts",
+    "devnet:manifest-ephemeral": "ts-mocha -p ./tsconfig.json -t 600000 tests/manifest-ephemeral.ts",
+    "manifest:bootstrap": "ts-mocha -p ./tsconfig.json -t 600000 scripts/bootstrap-manifest-markets.ts",
+    "rollup": "ts-mocha -p ./tsconfig.json -t 600000 tests/rollup-session.ts",
+    "rollup:manifest-fork": "ts-mocha -p ./tsconfig.json -t 600000 tests/manifest-fork-rollup.ts",
+    "pinocchio:oracle": "ts-mocha -p ./tsconfig.json -t 600000 tests/pinocchio-oracle.ts",
+    "pinocchio:factory": "ts-mocha -p ./tsconfig.json -t 600000 tests/pinocchio-factory.ts",
+    "pinocchio:market": "ts-mocha -p ./tsconfig.json -t 600000 tests/pinocchio-market.ts",
+    "monitor": "node scripts/monitor.ts",
+    "monitor:self-test": "node scripts/monitor.ts --self-test",
+    "check:program-artifacts": "node scripts/check-program-artifacts.mjs"
+  },
+  "dependencies": {
+    "@coral-xyz/anchor": "^0.31.1",
+    "@solana/spl-token": "^0.4.13",
+    "@solana/web3.js": "^1.98.0"
+  },
+  "devDependencies": {
+    "@bonasa-tech/manifest-sdk": "0.2.44",
+    "@magicblock-labs/ephemeral-rollups-sdk": "0.16.1",
+    "@types/chai": "^4.3.0",
+    "@types/mocha": "^10.0.0",
+    "@types/node": "^20.19.43",
+    "chai": "^4.3.0",
+    "mocha": "^10.0.0",
+    "ts-mocha": "^10.0.0",
+    "typescript": "^5.6.0"
+  }
+}

@@ -1,0 +1,60 @@
+# SPDX-License-Identifier: Apache-2.0
+[workspace]
+resolver = "2"
+members = [
+    "common",
+    "programs/test-transfer-hook",
+    "programs/oracle-adapter",
+    "programs/series",
+    "programs/factory",
+    "programs/market",
+]
+
+# The framework variants are independent workspaces: they are `no_std`, pull a
+# disjoint dependency set, and need their own release profiles. They exist to
+# measure deploy rent against the Anchor build, not to be part of it.
+exclude = [
+    "variants/oracle-adapter-pinocchio",
+    "variants/oracle-adapter-quasar",
+    "variants/factory-pinocchio",
+    "variants/market-pinocchio",
+    "variants/series-pinocchio",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+
+[workspace.dependencies]
+anchor-lang = "0.31.1"
+anchor-spl = "0.31.1"
+common = { path = "common" }
+oracle-adapter = { path = "programs/oracle-adapter", features = ["no-entrypoint"] }
+series = { path = "programs/series", features = ["no-entrypoint"] }
+
+# Programs are optimized for size rather than speed. Rent is
+# `(bytes + 173) * 6960` lamports and is paid once per deploy; these are
+# settlement-path programs called a handful of times per series, not hot loops.
+#
+# `opt-level = "z"` sits on the profile rather than on individual packages so it
+# reaches dependencies too. A `[profile.release.package.<name>]` override
+# applies to that crate alone, and `anchor-lang`, `anchor-spl` and
+# `spl-token-2022` are most of the `series` binary -- with the override form
+# they kept building at 3. Moving it here took `series` from 381,224 to 367,104
+# bytes. The four Pinocchio variants already set it this way.
+#
+# Cost, measured on the e2e suite: the heaviest `series` instruction goes from
+# 98,261 to 122,080 CU against a 200,000 default, and the median is 4,492 either
+# way. Set this back to 3 to reverse it.
+[profile.release]
+overflow-checks = true
+lto = "fat"
+codegen-units = 1
+opt-level = "z"
+panic = "abort"
+
+[profile.release.build-override]
+opt-level = 3
+incremental = false
+codegen-units = 1

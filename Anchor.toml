@@ -1,0 +1,66 @@
+# SPDX-License-Identifier: Apache-2.0
+[toolchain]
+anchor_version = "0.31.1"
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.localnet]
+test_transfer_hook = "A7q6ebW3jMRzx8JDNSYKXpVNdfaE78EaTYCP5LxZFNXR"
+oracle_adapter = "FMByTd4JrYycj1V7hVKHqjHnLZ5D4rwyYYscSqYiuGfz"
+series = "AJPJRQQpgT461SaiBvZY4ixdS6S5R2QYQsod6Qdpm8p9"
+factory = "CRBW3Et1ogjExdSnFty3gM4zyGoN7He5zfqkaieZqQkZ"
+market = "FYAhsmE2JCxuAFhq2asH2wC4i7ZaUE7kwRbcgzM3AwgC"
+
+[provider]
+cluster = "Localnet"
+wallet = "~/.config/solana/id.json"
+
+[scripts]
+# Unit and property tests run natively with `cargo test --workspace`. This is
+# the end-to-end lifecycle against real Pyth price accounts, loaded above.
+test = "pnpm e2e"
+
+[test.validator]
+# Port 8000 is commonly taken on developer machines (Docker Desktop binds it),
+# and the validator panics rather than falling back. Moving gossip also
+# requires an explicit bind address, or it tries to bind 0.0.0.0 and panics on
+# an unspecified IP.
+gossip_port = 8010
+bind_address = "127.0.0.1"
+
+# Pyth `PriceUpdateV2` account-layout fixtures, one per price the tests need.
+# They begin as real bytes from the sponsored SOL/USD feed, but rewriting the
+# price, feed id and publish time invalidates the original attestation. These
+# exercise decoding and contract checks, not receiver signature verification;
+# see scripts/fetch-pyth-fixture.ts. Regenerate with `pnpm pyth:fixture` — the
+# publish times are relative to when they were taken, and the tests fail with a
+# clear message if they have gone stale.
+[[test.validator.account]]
+address = "DEtP35KP4ioEaZt8hbg64ZjQdWm2JKVXAt7QcUoucdem"
+filename = "tests/fixtures/pyth-at-1000.json"
+
+[[test.validator.account]]
+address = "BuiRxf9SfWEtejNurMoEafmMhJ6VVYCD2dHGXv3VTc8C"
+filename = "tests/fixtures/pyth-at-1200.json"
+
+[[test.validator.account]]
+address = "wyWz9MFub8DRohDgeS2VFaXT77EGRQxCgRz3BZQsuD7"
+filename = "tests/fixtures/pyth-at-250.json"
+
+[[test.validator.account]]
+address = "5L1pifLzp6N71UvLUuvXDqTQfQKrJDWQTQQnWHJSsW6M"
+filename = "tests/fixtures/pyth-at-300.json"
+
+[[test.validator.account]]
+address = "5UwXgaBafMgP2NV8x2rKvWU67ehJzHpCoBbcHsb6w1VF"
+filename = "tests/fixtures/pyth-at-600.json"
+
+[[test.validator.account]]
+address = "phwgUaLUntYPU8RCU6nL5vt8fnWd8AoqanYfdY3C3uE"
+filename = "tests/fixtures/pyth-live.json"
+
+[[test.validator.account]]
+address = "AkfB3WHbAXHrEuTtefxQrTkZAKMdcYCF83czHu62x1Kg"
+filename = "tests/fixtures/pyth-stale.json"
