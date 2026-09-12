@@ -1,0 +1,1122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>erodoro protocol</title>
+<meta name="description" content="Covered calls on tokenized stocks, on Solana. What it does, the problem it solves, and how it works.">
+<style>
+/* ---------------------------------------------------------------------------
+   Palette and type are inherited from web/app/globals.css, not reinvented.
+   Two rules carry over from WORLD.md and are load-bearing here:
+
+   1. --accent is the locked share and nothing else. Never emphasis, never
+      "primary". P is green, N is gold, so a glance at any lit thing says
+      whether it is the asset, P's, or N's.
+   2. Nothing catches. No floors, nets, cushions or ground planes under the
+      slope -- this is not downside protection, and the drawing must not
+      imply one.
+   Dark only, deliberately: globals.css records the absence of a light theme
+   as a non-goal, and the figures only read on a near-black ground.
+--------------------------------------------------------------------------- */
+:root {
+  --bg: #08080a;
+  --panel: #0f0f12;
+  --panel-2: #141418;
+  --line: #212127;
+  --line-soft: #1a1a1f;
+
+  --text: #ededf0;
+  --muted: #8b8b95;
+  --dim: #5c5c66;
+
+  --accent: #e86a3a;
+  --p: #4a9d7f;
+  --n: #e8b23a;
+  --danger: #e05252;
+
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+  --measure: 62ch;
+  --gutter: clamp(1.5rem, 6vw, 7rem);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* --- the deck ----------------------------------------------------------- */
+
+.deck {
+  height: 100dvh;
+  overflow-y: scroll;
+  scroll-snap-type: y mandatory;
+  scroll-behavior: smooth;
+}
+
+.slide {
+  min-height: 100dvh;
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: clamp(1.5rem, 3vh, 2.75rem);
+  padding: clamp(4rem, 12vh, 8rem) var(--gutter) clamp(5rem, 12vh, 7rem);
+  border-top: 1px solid var(--line-soft);
+  position: relative;
+}
+.slide:first-child { border-top: 0; }
+
+/* --- type --------------------------------------------------------------- */
+
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin: 0;
+}
+.eyebrow b { color: var(--muted); font-weight: 500; }
+
+h1, h2 {
+  margin: 0;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+  text-wrap: balance;
+}
+h1 { font-size: clamp(2.75rem, 8vw, 6rem); }
+h2 { font-size: clamp(1.75rem, 4.2vw, 3.1rem); max-width: 18ch; }
+
+.lede {
+  margin: 0;
+  max-width: var(--measure);
+  font-size: clamp(1rem, 1.9vw, 1.2rem);
+  color: var(--muted);
+  text-wrap: pretty;
+}
+.lede strong { color: var(--text); font-weight: 500; }
+
+p.note {
+  margin: 0;
+  max-width: var(--measure);
+  font-size: 0.9rem;
+  color: var(--dim);
+}
+
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.p-side { color: var(--p); }
+.n-side { color: var(--n); }
+.asset  { color: var(--accent); }
+.risk   { color: var(--danger); }
+
+/* --- layout blocks ------------------------------------------------------ */
+
+.split {
+  display: grid;
+  gap: clamp(1.75rem, 4vw, 3.5rem);
+  align-items: center;
+}
+@media (min-width: 60rem) {
+  .split { grid-template-columns: minmax(0, 1fr) minmax(0, 0.85fr); }
+  .split.narrow-fig { grid-template-columns: minmax(0, 1fr) minmax(0, 0.6fr); }
+}
+
+.stack { display: flex; flex-direction: column; gap: clamp(1rem, 2.5vh, 1.75rem); }
+
+/* Hairline grid of cards. The 1px gap on a --line ground draws the rules,
+   so no card needs its own border to fight with its neighbour's. */
+.cards {
+  display: grid;
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  overflow: hidden;
+}
+@media (min-width: 48rem) {
+  .cards[data-cols="2"] { grid-template-columns: repeat(2, 1fr); }
+  .cards[data-cols="3"] { grid-template-columns: repeat(3, 1fr); }
+  .cards[data-cols="4"] { grid-template-columns: repeat(4, 1fr); }
+}
+.card { background: var(--panel); padding: clamp(1rem, 2vw, 1.4rem); }
+.card h3 {
+  margin: 0 0 0.5rem;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.card h3.is-p { color: var(--p); }
+.card h3.is-n { color: var(--n); }
+.card h3.is-plain { color: var(--muted); }
+.card p { margin: 0; font-size: 0.92rem; color: var(--muted); }
+.card p + p { margin-top: 0.55rem; }
+
+/* --- data --------------------------------------------------------------- */
+
+.scroll-x { overflow-x: auto; }
+
+table {
+  width: 100%;
+  min-width: 22rem;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+th {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--dim);
+  text-align: left;
+  padding: 0 1.25rem 0.6rem 0;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+td {
+  padding: 0.55rem 1.25rem 0.55rem 0;
+  border-bottom: 1px solid var(--line-soft);
+  color: var(--muted);
+  vertical-align: top;
+}
+td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+td.key { color: var(--text); }
+tr.is-strike td { background: color-mix(in oklab, var(--n) 7%, transparent); }
+.tag {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin-left: 0.6rem;
+}
+
+.formula {
+  margin: 0;
+  padding: 1rem 1.15rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--accent);
+  border-radius: 3px;
+  font-family: var(--mono);
+  font-size: clamp(0.72rem, 1.35vw, 0.86rem);
+  line-height: 1.9;
+  color: var(--muted);
+  overflow-x: auto;
+  white-space: pre;
+}
+.formula b { color: var(--text); font-weight: 400; }
+.formula .c { color: var(--dim); }
+
+.figures { display: flex; flex-direction: column; gap: 0.75rem; }
+.fig { width: 100%; height: auto; display: block; overflow: visible; }
+.fig-caption {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  color: var(--dim);
+  text-transform: uppercase;
+}
+
+/* --- the scrubber on the payoff slide ----------------------------------- */
+
+.scrub { display: flex; flex-direction: column; gap: 0.7rem; }
+.scrub-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 2rem;
+  align-items: baseline;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+.scrub-head span { font-size: 0.68rem; letter-spacing: 0.11em; text-transform: uppercase; color: var(--dim); }
+.scrub-head output { font-size: 1.35rem; }
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  background: transparent;
+  cursor: pointer;
+  margin: 0;
+}
+input[type="range"]::-webkit-slider-runnable-track { height: 3px; border-radius: 999px; background: var(--line); }
+input[type="range"]::-moz-range-track { height: 3px; border-radius: 999px; background: var(--line); }
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  margin-top: -8px;
+  width: 19px; height: 19px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 3px solid var(--bg);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 15px; height: 15px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 3px solid var(--bg);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+input[type="range"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 6px; border-radius: 3px; }
+
+/* --- chrome ------------------------------------------------------------- */
+
+.rail {
+  position: fixed;
+  right: clamp(0.7rem, 1.6vw, 1.5rem);
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  z-index: 20;
+}
+.rail button {
+  width: 18px; height: 10px;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  display: block;
+}
+.rail button::after {
+  content: "";
+  display: block;
+  height: 2px;
+  width: 10px;
+  margin-left: auto;
+  background: var(--line);
+  transition: width 180ms ease, background-color 180ms ease;
+}
+.rail button:hover::after { background: var(--dim); }
+.rail button[aria-current="true"]::after { width: 18px; background: var(--accent); }
+.rail button:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
+
+.counter {
+  position: fixed;
+  left: var(--gutter);
+  bottom: clamp(1.1rem, 3.5vh, 2rem);
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  color: var(--dim);
+  z-index: 20;
+  pointer-events: none;
+}
+.counter b { color: var(--muted); font-weight: 400; }
+
+.hint {
+  position: fixed;
+  right: clamp(2.6rem, 5vw, 4rem);
+  bottom: clamp(1.1rem, 3.5vh, 2rem);
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.1em;
+  color: var(--dim);
+  z-index: 20;
+  transition: opacity 400ms ease;
+}
+.hint[data-gone="true"] { opacity: 0; }
+
+@media (max-width: 40rem) {
+  .hint { display: none; }
+  .counter { font-size: 0.62rem; }
+}
+
+/* Entrance: one orchestrated fade per slide, driven by intersection, not by
+   a clock. Gated on .js so a blocked or broken script leaves a deck that is
+   fully legible rather than thirteen empty screens. */
+.js .slide > * { opacity: 0; transform: translateY(10px); }
+.js .slide[data-seen="true"] > * {
+  opacity: 1;
+  transform: none;
+  transition: opacity 620ms cubic-bezier(0.22, 1, 0.36, 1), transform 620ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.js .slide[data-seen="true"] > *:nth-child(2) { transition-delay: 70ms; }
+.js .slide[data-seen="true"] > *:nth-child(3) { transition-delay: 140ms; }
+.js .slide[data-seen="true"] > *:nth-child(4) { transition-delay: 210ms; }
+.js .slide[data-seen="true"] > *:nth-child(5) { transition-delay: 280ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .deck { scroll-behavior: auto; }
+  .js .slide > * { opacity: 1; transform: none; }
+  .js .slide[data-seen="true"] > * { transition: none; }
+  .rail button::after { transition: none; }
+}
+
+/* Nothing here is meant for paper, but a printed slide should not be a black
+   rectangle burning a cartridge. */
+@media print {
+  .deck { height: auto; overflow: visible; }
+  .slide { min-height: auto; page-break-after: always; }
+  .rail, .hint, .counter { display: none; }
+}
+</style>
+</head>
+<body>
+<script>document.documentElement.className += " js";</script>
+
+<main class="deck" id="deck">
+
+  <!-- 1 ------------------------------------------------------------------ -->
+  <section class="slide" data-title="erodoro">
+    <p class="eyebrow">Covered calls &middot; tokenized equities &middot; Solana</p>
+    <h1>erodoro</h1>
+    <p class="lede">
+      Lock a tokenized share, cap your upside at a strike you choose, and sell
+      that upside to someone else for <strong>cash today</strong>.
+    </p>
+    <div class="figures" style="max-width: 30rem;">
+      <svg class="fig" viewBox="0 0 340 200" role="img"
+           aria-label="The payoff of the capped claim: a line rising with the share price, then flattening at the strike."
+           data-figure='{"ghost":0.35,"fill":0.1,"pLine":1,"strikeMark":1}'></svg>
+      <p class="fig-caption">Value of one locked share to its owner, against price at maturity</p>
+    </div>
+    <p class="note">
+      Not deployed to mainnet. Nothing here holds real value.
+    </p>
+  </section>
+
+  <!-- 2 ------------------------------------------------------------------ -->
+  <section class="slide" data-title="The problem">
+    <div class="split">
+      <div class="stack">
+        <p class="eyebrow"><b>01</b> &nbsp;The problem</p>
+        <h2>A tokenized share sits there and pays you nothing.</h2>
+        <p class="lede">
+          You hold 1&nbsp;<span class="mono asset">TSLAx</span> &mdash; a Tesla
+          share that lives on Solana, worth <span class="mono">$400</span>. Most
+          of the time it will not reach <span class="mono">$500</span> in three
+          months, and you will have been paid nothing for the wait.
+        </p>
+        <p class="lede">
+          In traditional markets you would sell that unreached upside as a
+          covered call and pocket the premium. That instrument needs a broker,
+          an options desk, and a counterparty who can find you.
+          <strong>None of that reaches a token sitting in your wallet.</strong>
+        </p>
+      </div>
+      <div class="figures">
+        <svg class="fig" viewBox="0 0 340 200" role="img"
+             aria-label="The uncapped payoff: a straight line rising with price, with no cap."
+             data-figure='{"ghost":0.8,"fill":0,"pLine":0,"strikeMark":0,"ghostDash":0}'></svg>
+        <p class="fig-caption">Holding it plain &mdash; every dollar yours, and none of it paid up front</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3 ------------------------------------------------------------------ -->
+  <section class="slide" data-title="What it does">
+    <p class="eyebrow"><b>02</b> &nbsp;What it does</p>
+    <h2>Lock the share. Split it in two. Sell one half.</h2>
+    <div class="cards" data-cols="3">
+      <div class="card">
+        <h3>Lock</h3>
+        <p>
+          Deposit 1 <span class="mono">TSLAx</span>, pick a strike of
+          <span class="mono">$500</span> and a maturity three months out. The
+          vault mints you two tokens against it.
+        </p>
+      </div>
+      <div class="card">
+        <h3 class="is-p">P &mdash; keep</h3>
+        <p>The share, capped at the strike. This is the half you hold.</p>
+      </div>
+      <div class="card">
+        <h3 class="is-n">N &mdash; sell</h3>
+        <p>
+          Everything above the strike. Sell it for maybe
+          <span class="mono">$15</span>. That cash is yours immediately,
+          whatever happens next.
+        </p>
+      </div>
+    </div>
+    <p class="lede">
+      In traditional terms the <span class="p-side mono">P</span> holder has
+      written a covered call and the <span class="n-side mono">N</span> holder
+      owns it. Both halves are ordinary tokens and trade independently. Hand
+      back equal amounts of each and the original share comes straight back out.
+    </p>
+  </section>
+
+  <!-- 4 ------------------------------------------------------------------ -->
+  <section class="slide" data-title="The payoff">
+    <p class="eyebrow"><b>03</b> &nbsp;The payoff</p>
+    <div class="split">
+      <div class="stack">
+        <div class="scrub">
+          <div class="scrub-head">
+            <div>
+              <span>Price at maturity</span><br>
+              <output id="out-price" class="asset">$600</output>
+            </div>
+            <div>
+              <span>P receives</span><br>
+              <output id="out-p" class="p-side">$500</output>
+            </div>
+            <div>
+              <span>N receives</span><br>
+              <output id="out-n" class="n-side">$100</output>
+            </div>
+          </div>
+          <input type="range" id="price-range" min="0" max="1000" step="10" value="600"
+                 aria-label="Price of the share at maturity">
+        </div>
+        <div class="scroll-x">
+          <table>
+            <thead>
+              <tr><th>Share at maturity</th><th>P receives</th><th>N receives</th></tr>
+            </thead>
+            <tbody>
+              <tr><td class="num key">$250</td><td class="num p-side">$250</td><td class="num">&mdash;</td></tr>
+              <tr><td class="num key">$400<span class="tag">start</span></td><td class="num p-side">$400</td><td class="num">&mdash;</td></tr>
+              <tr class="is-strike"><td class="num key">$500<span class="tag">strike</span></td><td class="num p-side">$500</td><td class="num">&mdash;</td></tr>
+              <tr><td class="num key">$600</td><td class="num p-side">$500</td><td class="num n-side">$100</td></tr>
+              <tr><td class="num key">$1000</td><td class="num p-side">$500</td><td class="num n-side">$500</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="note">One share bought at $400, capped at $500. Before the premium.</p>
+      </div>
+      <div class="figures">
+        <svg class="fig" id="fig-live" viewBox="0 0 340 200" role="img"
+             aria-label="Interactive payoff diagram tracking the price selected on the slider."
+             data-figure='{"ghost":0.5,"fill":0.16,"pLine":1,"strikeMark":1,"price":600}'></svg>
+        <p class="fig-caption">
+          <span class="p-side">&#9632;</span> P &nbsp;
+          <span class="n-side">&#9632;</span> N &nbsp;
+          <span class="mono">&middot; &middot; &middot;</span> uncapped
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5 ------------------------------------------------------------------ -->
+  <section class="slide" data-title="Not protection">
+    <p class="eyebrow"><b>04</b> &nbsp;The part that must not be glossed over</p>
+    <h2><span class="risk">This is not downside protection.</span></h2>
+    <p class="lede">
+      Below the strike the <span class="p-side mono">P</span> holder takes the
+      full fall, exactly as they would holding the share. If it goes to
+      <span class="mono">$250</span> you lose <span class="mono">$150</span>.
+      The <span class="mono">$15</span> premium is the <strong>only</strong>
+      cushion. You have sold your upside, not bought insurance.
+    </p>
+    <div class="figures" style="max-width: 30rem;">
+      <svg class="fig" viewBox="0 0 340 200" role="img"
+           aria-label="The payoff below the strike, falling away with no floor beneath it."
+           data-figure='{"ghost":0.18,"fill":0.06,"pLine":1,"strikeMark":1,"emphasis":"below","noAxis":1}'></svg>
+      <p class="fig-caption">Nothing catches it</p>
+    </div>
+    <p class="note">
+      Any interface implying a floor &mdash; &ldquo;protected&rdquo;,
+      &ldquo;safe&rdquo;, &ldquo;hedged&rdquo; &mdash; would be false, and the
+      first person to read the contract would say so publicly.
+    </p>
+  </section>
+
+  <!-- 6 ------------------------------------------------------------------ -->
+  <section class="slide" data-title="The lifecycle">
+    <p class="eyebrow"><b>05</b> &nbsp;How it works &mdash; the lifecycle</p>
+    <h2>Five instructions, and nobody who can pick the price.</h2>
+    <div class="scroll-x">
+      <table>
+        <thead>
+          <tr><th>Instruction</th><th>Who</th><th>What it does</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="num key">split</td><td>Anyone</td>
+            <td>Locks collateral, mints equal <span class="p-side mono">P</span> and <span class="n-side mono">N</span>.</td>
+          </tr>
+          <tr>
+            <td class="num key">merge</td><td>Anyone</td>
+            <td>Burns equal amounts of both, returns the share. Works while paused, so a pause never traps collateral behind existing claims.</td>
+          </tr>
+          <tr>
+            <td class="num key">settle</td><td>Anyone, once</td>
+            <td>Reads a signed Pyth price and freezes the two pools. Permissionless: anyone can poke it, nobody chooses the number.</td>
+          </tr>
+          <tr>
+            <td class="num key">redeem_p</td><td class="p-side">P holders</td>
+            <td rowspan="2">Pro-rata claim on the frozen pool for that side.</td>
+          </tr>
+          <tr>
+            <td class="num key">redeem_n</td><td class="n-side">N holders</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <pre class="formula"><span class="c">-- the whole product, in three lines</span>
+price &lt;= strike:  <b>p_pool</b> = collateral                      <b>n_pool</b> = 0
+price &gt;  strike:  <b>p_pool</b> = floor(collateral*strike/price)  <b>n_pool</b> = collateral - p_pool
+<b>payout</b>          = floor(amount * pool / supply_at_settlement)</pre>
+    <p class="note">
+      Payouts floor, so total paid never exceeds collateral locked, in any
+      redemption order. Where rounding moves value between the sides it moves
+      it to P, the senior claim &mdash; asserted in tests rather than left to emerge.
+    </p>
+  </section>
+
+  <!-- 7 ------------------------------------------------------------------ -->
+  <section class="slide" data-title="The programs">
+    <p class="eyebrow"><b>06</b> &nbsp;How it works &mdash; the programs</p>
+    <h2>Four programs and a shared math crate.</h2>
+    <div class="cards" data-cols="4">
+      <div class="card">
+        <h3 class="is-plain">series</h3>
+        <p>The vault and the settlement engine. Holds the collateral, owns the two mints, splits the pool at maturity.</p>
+      </div>
+      <div class="card">
+        <h3 class="is-plain">oracle&#8209;adapter</h3>
+        <p>Owns the <span class="mono">FeedConfig</span> accounts that make a feed's identity tamper&#8209;evident. Linked as a library, not a CPI target &mdash; the price account is in the transaction anyway.</p>
+      </div>
+      <div class="card">
+        <h3 class="is-plain">factory</h3>
+        <p>Policy bounds, allowlists, and the canonical registry. Creation is permissionless; the registry decides what is <em>canonical</em>.</p>
+      </div>
+      <div class="card">
+        <h3 class="is-plain">market</h3>
+        <p>An order book for the two legs, with an ephemeral-rollup hot path. A prototype.</p>
+      </div>
+    </div>
+    <p class="lede">
+      No admin can touch active collateral. The series admin can pause and
+      unpause splits, and sweep dust once both supplies are zero &mdash; that is
+      the entire surface. It cannot settle, cannot change a term, and can be
+      renounced permanently.
+    </p>
+    <p class="note">
+      The factory has no power over a series it created, not even to pause one.
+      Front ends must list from the registry's <span class="mono">SeriesRecord</span>,
+      never from the series program's accounts at large.
+    </p>
+  </section>
+
+  <!-- 8 ------------------------------------------------------------------ -->
+  <section class="slide" data-title="The issuer's levers">
+    <p class="eyebrow"><b>07</b> &nbsp;Why it is not trivial</p>
+    <h2>The issuer keeps five levers over anything in the vault.</h2>
+    <p class="lede">
+      The collateral is a Token-2022 mint. This is not a protocol whose security
+      can exceed the issuer's honesty, and the design says so rather than
+      papering over it.
+    </p>
+    <div class="scroll-x">
+      <table>
+        <thead>
+          <tr><th>Lever</th><th>What the issuer can do</th><th>What the protocol does</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="num key">permanentDelegate</td>
+            <td>Move or burn collateral out of a vault, at any time, with no consent.</td>
+            <td>Redemption prices the shortfall proportionally instead of paying first&#8209;come.</td>
+          </tr>
+          <tr>
+            <td class="num key">scaledUiAmount</td>
+            <td>Rebase every balance for a corporate action.</td>
+            <td>The strike is adjusted by the same ratio at settlement.</td>
+          </tr>
+          <tr>
+            <td class="num key">transferHook</td>
+            <td>Arm a blocklist without redeploying the mint.</td>
+            <td>Every collateral movement resolves hook accounts from day one.</td>
+          </tr>
+          <tr>
+            <td class="num key">pausableConfig</td>
+            <td>Halt all transfers globally.</td>
+            <td>Transfers revert loudly; <span class="mono">settle</span> still works, so a pause delays redemption rather than losing it.</td>
+          </tr>
+          <tr>
+            <td class="num key">freeze authority</td>
+            <td>Freeze the vault's token account.</td>
+            <td>Same as a pause, scoped to one series.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <pre class="formula"><span class="c">-- a drained vault, priced rather than gated</span>
+available = vault_balance
+expected  = (p_pool - p_redeemed) + (n_pool - n_redeemed)
+<b>payout</b>    = floor(quoted * available / expected)   <span class="c">when available &lt; expected</span></pre>
+    <p class="note">
+      Verified on a validator with a real permanent delegate: two holders,
+      unequal arrival order, half the vault seized after settlement. First and
+      last redeemer on each side are paid within <span class="mono">2</span> raw
+      units of each other.
+    </p>
+  </section>
+
+  <!-- 9 ------------------------------------------------------------------ -->
+  <section class="slide" data-title="The split">
+    <div class="split narrow-fig">
+      <div class="stack">
+        <p class="eyebrow"><b>08</b> &nbsp;The bug that looks boring</p>
+        <h2>A stock split would silently wipe out N.</h2>
+        <p class="lede">
+          A 2&#8209;for&#8209;1 split halves the price to <span class="mono">$300</span>
+          and doubles every balance. A naive contract compares
+          <span class="mono">$300</span> against the stored
+          <span class="mono">$500</span> strike, concludes &ldquo;below
+          strike&rdquo;, and hands everything to <span class="p-side mono">P</span>
+          &mdash; destroying <span class="n-side mono">N</span> in an event where
+          nobody lost a penny.
+        </p>
+        <pre class="formula"><span class="c">-- resolved at the price timestamp, never the clock</span>
+<b>effective_strike</b> = ceil(strike * m_creation / m_settlement)</pre>
+        <p class="lede">
+          The stored strike is never mutated, both multipliers are recorded so
+          any payout can be audited afterwards, and creation
+          <strong>refuses</strong> a series that would span a corporate action
+          already scheduled.
+        </p>
+      </div>
+      <div class="figures">
+        <svg class="fig" viewBox="0 0 340 200" role="img"
+             aria-label="The kink at the strike moving left as the strike is adjusted for a split."
+             data-figure='{"ghost":0.3,"fill":0.14,"pLine":1,"strikeMark":1,"shiftStrike":0.5,"priorStrike":500,"price":300}'></svg>
+        <p class="fig-caption">
+          Post-split, the price lands at <span class="mono">$300</span> &mdash;
+          right of the adjusted strike, left of the stored one
+        </p>
+      </div>
+    </div>
+    <p class="note">
+      Verified on a validator: a 2&#8209;for&#8209;1 split landing mid&#8209;series leaves both
+      pools bit&#8209;identical to the unsplit case. The dividend case is
+      <em>not</em> solved &mdash; a rebased cash dividend is not a clean ratio, and
+      no on&#8209;chain field distinguishes it from a split.
+    </p>
+  </section>
+
+  <!-- 10 ----------------------------------------------------------------- -->
+  <section class="slide" data-title="The price">
+    <p class="eyebrow"><b>09</b> &nbsp;Settling on a real price</p>
+    <h2>Tesla trades weekdays. The token trades always.</h2>
+    <p class="lede">
+      A price at 3am on a Sunday is not a market price, it is noise on a thin
+      book &mdash; and settling real money against it would be a gift to whoever
+      nudged it. The design assumed Pyth publishes a trading status to gate on.
+      <strong>It does not:</strong> the account the Solana receiver actually writes carries
+      price, confidence, exponent and publish time, and nothing about whether
+      the market was open.
+    </p>
+    <pre class="formula"><span class="c">-- so the requirement is met structurally instead</span>
+accept a quote only if  <b>publish_time</b> &isin; [ maturity_ts , maturity_ts + max_price_lag ]
+
+<span class="c">-- and refuse a tuple where no quote could ever qualify</span>
+settlement_delay &lt;= max_price_lag + min(series_max_age, feed_max_age)</pre>
+    <div class="cards" data-cols="3">
+      <div class="card">
+        <h3 class="is-plain">Maturity at a real close</h3>
+        <p>The window is computed off-chain per maturity and frozen at creation, keeping trading calendars, holidays and daylight-saving out of the program.</p>
+      </div>
+      <div class="card">
+        <h3 class="is-plain">Feed identity is immutable</h3>
+        <p>The feed id cannot be changed after creation. Only the account an update is read from can rotate, and the embedded id is checked on every read.</p>
+      </div>
+      <div class="card">
+        <h3 class="is-plain">Signatures have a floor</h3>
+        <p>A partially verified update below the configured signature count is rejected. A one-signature update is cheap to post and correspondingly cheap to forge.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 11 ----------------------------------------------------------------- -->
+  <section class="slide" data-title="The rollup">
+    <div class="split">
+      <div class="stack">
+        <p class="eyebrow"><b>10</b> &nbsp;Why an ephemeral rollup</p>
+        <h2>A maker who cannot reprice will not quote.</h2>
+        <p class="lede">
+          The premium is the <span class="p-side mono">P</span> holder's entire
+          compensation, and it only exists if somebody can profitably quote
+          <span class="n-side mono">N</span>. An options maker reprices as spot
+          moves &mdash; hundreds of updates an hour against very little volume. At
+          a fee and 400ms each, the spread needed to break even is wider than
+          the premium is worth.
+        </p>
+        <p class="lede">
+          So exactly one account is delegated: the <span class="mono">Book</span>
+          for a leg, holding orders and per-trader balances together.
+          <strong>Everything that holds value stays on Solana.</strong> Placing,
+          cancelling and filling take no token accounts at all &mdash; they move
+          entries in a ledger, and no token moves until somebody withdraws on L1.
+        </p>
+      </div>
+      <div class="stack">
+        <div class="scroll-x">
+          <table>
+            <thead>
+              <tr><th>Measured on a local stack</th><th>Latency</th></tr>
+            </thead>
+            <tbody>
+              <tr><td class="key">Place an order in the rollup</td><td class="num p-side">7&ndash;17 ms</td></tr>
+              <tr><td class="key">Fill an order in the rollup</td><td class="num p-side">6&ndash;12 ms</td></tr>
+              <tr><td class="key">Commit accepted</td><td class="num p-side">5&ndash;20 ms</td></tr>
+              <tr><td class="key">Committed state visible on L1</td><td class="num n-side">~510 ms</td></tr>
+              <tr><td class="key">Undelegate round trip</td><td class="num n-side">~515 ms</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="note">
+          The gap between those two groups is the whole argument for the split.
+          Quoting is instant; touching the base layer costs half a second, and a
+          maker repricing a hundred times a minute can afford exactly one of
+          those.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 12 ----------------------------------------------------------------- -->
+  <section class="slide" data-title="What is proven">
+    <p class="eyebrow"><b>11</b> &nbsp;What is actually proven</p>
+    <h2>The numbers a protocol with no TVL can honestly show.</h2>
+    <div class="scroll-x">
+      <table>
+        <thead>
+          <tr><th>Tier</th><th>Count</th><th>What only it can reach</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="key">Native unit + property</td><td class="num">98</td>
+            <td>The payoff and matching math and every guard, sub-second, no validator.</td>
+          </tr>
+          <tr>
+            <td class="key">End-to-end, local validator</td><td class="num">12</td>
+            <td>Account constraints, the factory&rarr;series CPI, real Token-2022 collateral, an armed transfer hook, settlement against real Pyth account bytes.</td>
+          </tr>
+          <tr>
+            <td class="key">Order book on devnet</td><td class="num">10</td>
+            <td>Happy-path behaviour of the deployed prototype. Not adversarial rounding.</td>
+          </tr>
+          <tr>
+            <td class="key">Oracle on devnet</td><td class="num risk">5 skipped</td>
+            <td>Detects a deployment/IDL mismatch and skips loudly until redeployment.</td>
+          </tr>
+          <tr>
+            <td class="key">External audits</td><td class="num risk">0</td>
+            <td>Internal review only: six findings, all fixed. That is not an audit.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="lede">
+      The two scenarios the design exists for are both verified on a validator
+      against a real Token-2022 mint: <strong>the split that would have wiped out
+      N</strong>, and <strong>the drain of a settled vault</strong> that pays every
+      redeemer the same haircut.
+    </p>
+  </section>
+
+  <!-- 13 ----------------------------------------------------------------- -->
+  <section class="slide" data-title="What is unsolved">
+    <p class="eyebrow"><b>12</b> &nbsp;What is not solved</p>
+    <h2>The contract works with zero users. The product does not.</h2>
+    <p class="lede">
+      Your entire compensation for capping your upside is that
+      <span class="mono">$15</span>, and it only exists if somebody actually
+      wants to buy <span class="n-side mono">N</span>. Nobody has committed yet.
+      That is not an engineering problem and no amount of code fixes it.
+    </p>
+    <div class="cards" data-cols="4">
+      <div class="card">
+        <h3 class="is-plain">N liquidity</h3>
+        <p>Unsolved, and the real risk to the product. Seeding a maker, a Dutch auction at creation, or an existing options desk &mdash; all commercial decisions, none evaluated.</p>
+      </div>
+      <div class="card">
+        <h3 class="is-plain">Dividends</h3>
+        <p>A rebased cash dividend moves value from P to N, the wrong way, and nothing on-chain distinguishes it from a split. Creation refuses <em>scheduled</em> changes; that is the conservative half of an answer.</p>
+      </div>
+      <div class="card">
+        <h3 class="is-plain">The market program</h3>
+        <p>A prototype with unresolved accounting and initialization findings. Deployment is not evidence.</p>
+      </div>
+      <div class="card">
+        <h3 class="is-plain">Mainnet</h3>
+        <p>Not deployed. Series and factory are not even on devnet &mdash; together they need about 5.9 SOL of rent and the faucet is capped.</p>
+      </div>
+    </div>
+    <p class="note">
+      <span class="mono">erodoro</span> &nbsp;&middot;&nbsp; Apache-2.0
+      &nbsp;&middot;&nbsp; Solana &middot; Pyth &middot; Token-2022 &middot; MagicBlock
+      &nbsp;&middot;&nbsp;
+      <span class="risk">Not on mainnet &mdash; nothing here holds real value</span>
+    </p>
+  </section>
+
+</main>
+
+<nav class="rail" id="rail" aria-label="Slides"></nav>
+<p class="counter" id="counter"><b>01</b> / 13</p>
+<p class="hint" id="hint">&darr; &nbsp;or&nbsp; &rarr;</p>
+
+<script>
+// If anything below throws, the entrance CSS goes with it -- a broken deck
+// still has to be a readable one, not thirteen empty screens.
+window.addEventListener("error", function () {
+  document.documentElement.classList.remove("js");
+});
+
+(function () {
+  "use strict";
+
+  var SVGNS = "http://www.w3.org/2000/svg";
+  var MAX = 1000;    // the price axis, in dollars
+  var STRIKE = 500;  // the worked example used throughout the repo
+
+  function node(name, attrs) {
+    var n = document.createElementNS(SVGNS, name);
+    for (var k in attrs) n.setAttribute(k, attrs[k]);
+    return n;
+  }
+
+  /* ---------------------------------------------------------------------
+     One figure, drawn in every state the deck needs.
+
+     The geometry is `splitPayoff` from lib/payoff.ts: P is min(price,
+     strike), N is whatever is left. Nothing is drawn beneath the slope --
+     no axis floor, no baseline rule -- because there is nothing beneath it.
+  --------------------------------------------------------------------- */
+  function draw(svg) {
+    var o = {};
+    try { o = JSON.parse(svg.getAttribute("data-figure") || "{}"); } catch (e) { o = {}; }
+
+    var W = 340, H = 200, padL = 26, padR = 14, padT = 16, padB = 26;
+    var strike = o.shiftStrike ? STRIKE * o.shiftStrike : STRIKE;
+
+    function X(v) { return padL + (v / MAX) * (W - padL - padR); }
+    function Y(v) { return H - padB - (v / MAX) * (H - padT - padB); }
+
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+
+    // Price axis. It marks where the reading starts, not a level anything
+    // rests on -- and it is dropped entirely on the slide about the fall,
+    // where a rule under the slope would read as the floor there isn't.
+    if (!o.noAxis) {
+      svg.appendChild(node("line", {
+        x1: X(0), y1: Y(0), x2: X(MAX), y2: Y(0),
+        stroke: "#212127", "stroke-width": 1
+      }));
+    }
+
+    if (o.ghost) {
+      svg.appendChild(node("line", Object.assign({
+        x1: X(0), y1: Y(0), x2: X(MAX), y2: Y(MAX),
+        stroke: "#e8b23a", "stroke-width": 1.25,
+        "stroke-opacity": o.ghost
+      }, o.ghostDash === 0 ? {} : { "stroke-dasharray": "3 4" })));
+    }
+
+    if (o.fill) {
+      svg.appendChild(node("path", {
+        d: "M" + X(strike) + "," + Y(strike) +
+           " L" + X(MAX) + "," + Y(MAX) +
+           " L" + X(MAX) + "," + Y(strike) + " Z",
+        fill: "#e8b23a", "fill-opacity": o.fill
+      }));
+    }
+
+    // The strike a naive contract would still be holding, drawn only on the
+    // corporate-action slide. Seeing both is the whole point there: the
+    // post-split price lands between them, and which one is used decides
+    // whether N is worth anything at all.
+    if (o.priorStrike) {
+      svg.appendChild(node("line", {
+        x1: X(o.priorStrike), y1: Y(0), x2: X(o.priorStrike), y2: Y(o.priorStrike),
+        stroke: "#5c5c66", "stroke-width": 1, "stroke-dasharray": "1 5"
+      }));
+      var s = node("text", {
+        x: X(o.priorStrike), y: Y(0) + 15, fill: "#5c5c66",
+        "font-family": "ui-monospace, SFMono-Regular, Menlo, monospace",
+        "font-size": "9", "letter-spacing": "0.1em", "text-anchor": "middle"
+      });
+      s.textContent = "STORED";
+      svg.appendChild(s);
+    }
+
+    if (o.strikeMark) {
+      svg.appendChild(node("line", {
+        x1: X(strike), y1: Y(0), x2: X(strike), y2: Y(strike),
+        stroke: "#e8b23a", "stroke-width": 1,
+        "stroke-dasharray": "2 4", "stroke-opacity": 0.55
+      }));
+      var k = node("text", {
+        x: X(strike), y: Y(0) + 15, fill: "#8b8b95",
+        "font-family": "ui-monospace, SFMono-Regular, Menlo, monospace",
+        "font-size": "9", "letter-spacing": "0.1em", "text-anchor": "middle"
+      });
+      k.textContent = o.priorStrike ? "ADJUSTED" : "STRIKE";
+      svg.appendChild(k);
+    }
+
+    if (o.pLine) {
+      // Two segments, so one half can be emphasised on the slide that is
+      // about it. `emphasis` names the half that stays lit.
+      svg.appendChild(node("path", {
+        d: "M" + X(0) + "," + Y(0) + " L" + X(strike) + "," + Y(strike),
+        fill: "none", stroke: "#4a9d7f", "stroke-width": 2,
+        "stroke-opacity": o.emphasis === "above" ? 0.25 : 1,
+        "stroke-linecap": "round"
+      }));
+      svg.appendChild(node("path", {
+        d: "M" + X(strike) + "," + Y(strike) + " L" + X(MAX) + "," + Y(strike),
+        fill: "none", stroke: "#4a9d7f", "stroke-width": 2,
+        "stroke-opacity": o.emphasis === "below" ? 0.25 : 1,
+        "stroke-linecap": "round"
+      }));
+    }
+
+    if (typeof o.price === "number") {
+      var pv = Math.min(o.price, strike);
+      svg.appendChild(node("line", {
+        x1: X(o.price), y1: Y(0), x2: X(o.price), y2: Y(Math.max(o.price, pv)),
+        stroke: "#e86a3a", "stroke-width": 1, "stroke-opacity": 0.5
+      }));
+      if (o.price > strike) {
+        svg.appendChild(node("circle", {
+          cx: X(o.price), cy: Y(o.price), r: 3.5, fill: "#e8b23a"
+        }));
+      }
+      svg.appendChild(node("circle", {
+        cx: X(o.price), cy: Y(pv), r: 3.5, fill: "#4a9d7f"
+      }));
+    }
+
+    var xl = node("text", {
+      x: X(MAX), y: Y(0) + 15, fill: "#5c5c66",
+      "font-family": "ui-monospace, SFMono-Regular, Menlo, monospace",
+      "font-size": "9", "letter-spacing": "0.1em", "text-anchor": "end"
+    });
+    xl.textContent = "PRICE";
+    svg.appendChild(xl);
+  }
+
+  var figures = document.querySelectorAll("[data-figure]");
+  for (var i = 0; i < figures.length; i++) draw(figures[i]);
+
+  /* --- the live payoff on slide 4 ------------------------------------- */
+
+  var range = document.getElementById("price-range");
+  var liveFig = document.getElementById("fig-live");
+  var outPrice = document.getElementById("out-price");
+  var outP = document.getElementById("out-p");
+  var outN = document.getElementById("out-n");
+
+  function usd(n) { return "$" + n.toLocaleString("en-US", { maximumFractionDigits: 0 }); }
+
+  function updateLive() {
+    var price = Number(range.value);
+    var p = Math.min(price, STRIKE);
+    var n = Math.max(0, price - STRIKE);
+
+    outPrice.textContent = usd(price);
+    outP.textContent = usd(p);
+    outN.textContent = n === 0 ? "—" : usd(n);
+    outN.style.color = n === 0 ? "var(--dim)" : "";
+
+    var opts = JSON.parse(liveFig.getAttribute("data-figure"));
+    opts.price = price;
+    liveFig.setAttribute("data-figure", JSON.stringify(opts));
+    draw(liveFig);
+  }
+
+  range.addEventListener("input", updateLive);
+  updateLive();
+
+  /* --- navigation ------------------------------------------------------ */
+
+  var deck = document.getElementById("deck");
+  var slides = Array.prototype.slice.call(deck.querySelectorAll(".slide"));
+  var rail = document.getElementById("rail");
+  var counter = document.getElementById("counter");
+  var hint = document.getElementById("hint");
+  var current = -1;   // so the first mark() actually paints
+
+  function pad(n) { return (n < 10 ? "0" : "") + n; }
+
+  slides.forEach(function (slide, idx) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.setAttribute("aria-label", pad(idx + 1) + " — " + slide.dataset.title);
+    b.addEventListener("click", function () { go(idx); });
+    rail.appendChild(b);
+  });
+  var dots = Array.prototype.slice.call(rail.children);
+
+  function go(idx) {
+    idx = Math.max(0, Math.min(slides.length - 1, idx));
+    slides[idx].scrollIntoView({
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+      block: "start"
+    });
+  }
+
+  function mark(idx) {
+    if (idx === current) return;
+    current = idx;
+    counter.innerHTML = "<b>" + pad(idx + 1) + "</b> / " + slides.length;
+    dots.forEach(function (d, i) { d.setAttribute("aria-current", i === idx ? "true" : "false"); });
+  }
+  mark(0);
+
+  if ("IntersectionObserver" in window) {
+    // Two observers rather than one: the entrance fires early and stays,
+    // the counter needs the slide that actually owns the viewport.
+    var seen = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) e.target.dataset.seen = "true";
+      });
+    }, { threshold: 0.15 });
+
+    var active = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) mark(slides.indexOf(e.target));
+      });
+    }, { threshold: 0.55 });
+
+    slides.forEach(function (s) { seen.observe(s); active.observe(s); });
+  } else {
+    slides.forEach(function (s) { s.dataset.seen = "true"; });
+  }
+
+  deck.addEventListener("scroll", function () {
+    if (deck.scrollTop > 40) hint.dataset.gone = "true";
+  }, { passive: true });
+
+  document.addEventListener("keydown", function (e) {
+    if (e.target instanceof HTMLInputElement) return;
+    var key = e.key;
+    if (key === "ArrowDown" || key === "ArrowRight" || key === "PageDown" || key === " " || key === "j") {
+      e.preventDefault(); go(current + 1);
+    } else if (key === "ArrowUp" || key === "ArrowLeft" || key === "PageUp" || key === "k") {
+      e.preventDefault(); go(current - 1);
+    } else if (key === "Home") {
+      e.preventDefault(); go(0);
+    } else if (key === "End") {
+      e.preventDefault(); go(slides.length - 1);
+    }
+  });
+}());
+</script>
+
+</body>
+</html>

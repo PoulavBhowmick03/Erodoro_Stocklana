@@ -1,0 +1,268 @@
+{
+  "address": "FMByTd4JrYycj1V7hVKHqjHnLZ5D4rwyYYscSqYiuGfz",
+  "metadata": {
+    "name": "oracle_adapter",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Normalizes a price source into a validated quote for settlement."
+  },
+  "instructions": [
+    {
+      "name": "initialize_feed_config",
+      "docs": [
+        "Pin a feed: its id, the one account quotes may be read from, how that",
+        "account is decoded, and how stale a quote may be."
+      ],
+      "discriminator": [
+        200,
+        171,
+        105,
+        168,
+        38,
+        246,
+        232,
+        70
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "admin",
+          "signer": true
+        },
+        {
+          "name": "feed_config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  101,
+                  101,
+                  100,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "feed_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "source",
+          "docs": [
+            "The Pyth price account quotes are read from.",
+            "feed-id-checked before its address is stored and again on every read."
+          ]
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "feed_id",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "max_age_secs",
+          "type": "i64"
+        },
+        {
+          "name": "min_verification_signatures",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "preview_quote",
+      "docs": [
+        "Read the current quote and return it as instruction return data.",
+        "",
+        "Read-only convenience for off-chain tooling and previews; settlement",
+        "calls [`read_quote_at_or_after`] directly rather than going through a",
+        "CPI."
+      ],
+      "discriminator": [
+        52,
+        81,
+        141,
+        141,
+        0,
+        130,
+        206,
+        20
+      ],
+      "accounts": [
+        {
+          "name": "feed_config"
+        },
+        {
+          "name": "source"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "set_admin",
+      "discriminator": [
+        251,
+        163,
+        0,
+        52,
+        91,
+        194,
+        187,
+        92
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "signer": true,
+          "relations": [
+            "feed_config"
+          ]
+        },
+        {
+          "name": "feed_config",
+          "writable": true
+        }
+      ],
+      "args": [
+        {
+          "name": "new_admin",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "set_source",
+      "docs": [
+        "Repoint the config at a new Pyth price account for the same feed.",
+        "",
+        "The feed id is deliberately not settable — repointing at a different",
+        "asset is the obvious attack. Rotating the *account* is what this exists",
+        "for: Pyth price updates are posted fresh, and the quote's own feed id",
+        "is checked on every read, so a rotation cannot change what is settled",
+        "against."
+      ],
+      "discriminator": [
+        136,
+        61,
+        231,
+        10,
+        214,
+        70,
+        18,
+        31
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "signer": true,
+          "relations": [
+            "feed_config"
+          ]
+        },
+        {
+          "name": "feed_config",
+          "writable": true
+        },
+        {
+          "name": "source"
+        }
+      ],
+      "args": []
+    }
+  ],
+  "accounts": [
+    {
+      "name": "FeedConfig",
+      "discriminator": [
+        75,
+        97,
+        12,
+        15,
+        89,
+        221,
+        78,
+        71
+      ]
+    }
+  ],
+  "types": [
+    {
+      "name": "FeedConfig",
+      "docs": [
+        "Immutable-ish identity of a price feed. `feed_id` never changes; the",
+        "account it is read from can be rotated by the admin."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "feed_id",
+            "docs": [
+              "Pyth feed id for the pair. Every quote is checked against this, so a",
+              "series can never settle against the price of a different asset."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "source",
+            "type": "pubkey"
+          },
+          {
+            "name": "max_age_secs",
+            "docs": [
+              "Maximum accepted staleness of a quote relative to the cluster clock."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "min_verification_signatures",
+            "docs": [
+              "Minimum guardian signatures a partially-verified Pyth update must",
+              "carry. `VerificationLevel::Full` always clears it. A zero floor accepts",
+              "an update backed by no signatures at all, so mainnet configs must set",
+              "this."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    }
+  ]
+}

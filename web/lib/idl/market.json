@@ -1,0 +1,1553 @@
+{
+  "address": "FYAhsmE2JCxuAFhq2asH2wC4i7ZaUE7kwRbcgzM3AwgC",
+  "metadata": {
+    "name": "market",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Order book for a series' P and N legs, with an ephemeral-rollup hot path."
+  },
+  "instructions": [
+    {
+      "name": "cancel_order",
+      "discriminator": [
+        95,
+        129,
+        237,
+        240,
+        8,
+        49,
+        223,
+        132
+      ],
+      "accounts": [
+        {
+          "name": "trader",
+          "signer": true
+        },
+        {
+          "name": "market",
+          "relations": [
+            "book"
+          ]
+        },
+        {
+          "name": "book",
+          "writable": true
+        }
+      ],
+      "args": [
+        {
+          "name": "id",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "commit_book",
+      "docs": [
+        "Push the current ledger to L1 without ending the session."
+      ],
+      "discriminator": [
+        97,
+        13,
+        159,
+        245,
+        44,
+        27,
+        66,
+        174
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "book",
+          "writable": true
+        },
+        {
+          "name": "magic_program",
+          "address": "Magic11111111111111111111111111111111111111"
+        },
+        {
+          "name": "magic_context",
+          "writable": true,
+          "address": "MagicContext1111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "delegate_book",
+      "docs": [
+        "Hand the book to an ephemeral rollup. Everything above still works;",
+        "it just runs there instead, for free and in milliseconds."
+      ],
+      "discriminator": [
+        175,
+        120,
+        231,
+        223,
+        36,
+        212,
+        159,
+        143
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "signer": true
+        },
+        {
+          "name": "market"
+        },
+        {
+          "name": "buffer_book",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  117,
+                  102,
+                  102,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "book"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                215,
+                255,
+                152,
+                97,
+                174,
+                194,
+                16,
+                205,
+                142,
+                240,
+                190,
+                233,
+                212,
+                212,
+                74,
+                97,
+                226,
+                170,
+                220,
+                71,
+                93,
+                195,
+                192,
+                151,
+                31,
+                243,
+                75,
+                145,
+                83,
+                64,
+                217,
+                65
+              ]
+            }
+          }
+        },
+        {
+          "name": "delegation_record_book",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  101,
+                  108,
+                  101,
+                  103,
+                  97,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "book"
+              }
+            ],
+            "program": {
+              "kind": "account",
+              "path": "delegation_program"
+            }
+          }
+        },
+        {
+          "name": "delegation_metadata_book",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  101,
+                  108,
+                  101,
+                  103,
+                  97,
+                  116,
+                  105,
+                  111,
+                  110,
+                  45,
+                  109,
+                  101,
+                  116,
+                  97,
+                  100,
+                  97,
+                  116,
+                  97
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "book"
+              }
+            ],
+            "program": {
+              "kind": "account",
+              "path": "delegation_program"
+            }
+          }
+        },
+        {
+          "name": "book",
+          "writable": true
+        },
+        {
+          "name": "owner_program",
+          "address": "FYAhsmE2JCxuAFhq2asH2wC4i7ZaUE7kwRbcgzM3AwgC"
+        },
+        {
+          "name": "delegation_program",
+          "address": "DELeGGvXpWV2fqJUhqcF5ZSYMS4JTLjteaAMARRSaeSh"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "leg",
+          "type": {
+            "defined": {
+              "name": "Leg"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "deposit",
+      "docs": [
+        "Move tokens into the vaults and credit the trader's slot. L1 only —",
+        "while the book is delegated this instruction cannot even deserialize",
+        "it."
+      ],
+      "discriminator": [
+        242,
+        35,
+        198,
+        137,
+        82,
+        225,
+        242,
+        182
+      ],
+      "accounts": [
+        {
+          "name": "trader",
+          "signer": true
+        },
+        {
+          "name": "market",
+          "relations": [
+            "book"
+          ]
+        },
+        {
+          "name": "book",
+          "writable": true
+        },
+        {
+          "name": "base_vault",
+          "writable": true
+        },
+        {
+          "name": "quote_vault",
+          "writable": true,
+          "relations": [
+            "market"
+          ]
+        },
+        {
+          "name": "trader_base",
+          "writable": true
+        },
+        {
+          "name": "trader_quote",
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "base_amount",
+          "type": "u64"
+        },
+        {
+          "name": "quote_amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "fill_order",
+      "docs": [
+        "Cross against a resting order at the maker's price."
+      ],
+      "discriminator": [
+        232,
+        122,
+        115,
+        25,
+        199,
+        143,
+        136,
+        162
+      ],
+      "accounts": [
+        {
+          "name": "trader",
+          "signer": true
+        },
+        {
+          "name": "market",
+          "relations": [
+            "book"
+          ]
+        },
+        {
+          "name": "book",
+          "writable": true
+        }
+      ],
+      "args": [
+        {
+          "name": "id",
+          "type": "u64"
+        },
+        {
+          "name": "qty",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "initialize_book",
+      "docs": [
+        "Open the book for one leg. Capacity is fixed: a delegated account",
+        "cannot be reallocated."
+      ],
+      "discriminator": [
+        229,
+        238,
+        30,
+        198,
+        244,
+        0,
+        186,
+        239
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "market"
+        },
+        {
+          "name": "book",
+          "writable": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "leg",
+          "type": {
+            "defined": {
+              "name": "Leg"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "initialize_market",
+      "docs": [
+        "Wire a market to a series: the two claim mints, the quote mint, and",
+        "three vaults owned by the market PDA."
+      ],
+      "discriminator": [
+        35,
+        35,
+        189,
+        193,
+        155,
+        48,
+        170,
+        203
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "series",
+          "docs": [
+            "identifier — the market has no authority over it and never will."
+          ]
+        },
+        {
+          "name": "market",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "series"
+              }
+            ]
+          }
+        },
+        {
+          "name": "p_mint"
+        },
+        {
+          "name": "n_mint"
+        },
+        {
+          "name": "quote_mint"
+        },
+        {
+          "name": "p_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "market"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "p_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "n_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "market"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "n_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "quote_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "market"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "quote_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "maturity_ts",
+          "type": "i64"
+        }
+      ]
+    },
+    {
+      "name": "place_order",
+      "discriminator": [
+        51,
+        194,
+        155,
+        175,
+        109,
+        130,
+        96,
+        106
+      ],
+      "accounts": [
+        {
+          "name": "trader",
+          "signer": true
+        },
+        {
+          "name": "market",
+          "relations": [
+            "book"
+          ]
+        },
+        {
+          "name": "book",
+          "writable": true
+        }
+      ],
+      "args": [
+        {
+          "name": "is_bid",
+          "type": "bool"
+        },
+        {
+          "name": "price",
+          "type": "u64"
+        },
+        {
+          "name": "qty",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "process_undelegation",
+      "discriminator": [
+        196,
+        28,
+        41,
+        206,
+        48,
+        37,
+        51,
+        167
+      ],
+      "accounts": [
+        {
+          "name": "base_account",
+          "writable": true
+        },
+        {
+          "name": "buffer",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  117,
+                  110,
+                  100,
+                  101,
+                  108,
+                  101,
+                  103,
+                  97,
+                  116,
+                  101,
+                  45,
+                  98,
+                  117,
+                  102,
+                  102,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "base_account"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                181,
+                183,
+                0,
+                225,
+                242,
+                87,
+                58,
+                192,
+                204,
+                6,
+                34,
+                1,
+                52,
+                74,
+                207,
+                151,
+                184,
+                53,
+                6,
+                235,
+                140,
+                229,
+                25,
+                152,
+                204,
+                98,
+                126,
+                24,
+                147,
+                128,
+                167,
+                62
+              ]
+            }
+          }
+        },
+        {
+          "name": "payer",
+          "writable": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "account_seeds",
+          "type": {
+            "vec": "bytes"
+          }
+        }
+      ]
+    },
+    {
+      "name": "undelegate_book",
+      "docs": [
+        "End the session and return the book to this program.",
+        "",
+        "Withdrawals are impossible until this lands, so it is the instruction",
+        "that matters operationally: run it before the series matures."
+      ],
+      "discriminator": [
+        122,
+        145,
+        114,
+        28,
+        40,
+        87,
+        180,
+        254
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "book",
+          "writable": true
+        },
+        {
+          "name": "magic_program",
+          "address": "Magic11111111111111111111111111111111111111"
+        },
+        {
+          "name": "magic_context",
+          "writable": true,
+          "address": "MagicContext1111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "withdraw",
+      "docs": [
+        "Debit the trader's slot and send the tokens back. Only unlocked",
+        "balances can leave; resting orders hold the rest."
+      ],
+      "discriminator": [
+        183,
+        18,
+        70,
+        156,
+        148,
+        109,
+        161,
+        34
+      ],
+      "accounts": [
+        {
+          "name": "trader",
+          "signer": true
+        },
+        {
+          "name": "market",
+          "relations": [
+            "book"
+          ]
+        },
+        {
+          "name": "book",
+          "writable": true
+        },
+        {
+          "name": "base_vault",
+          "writable": true
+        },
+        {
+          "name": "quote_vault",
+          "writable": true,
+          "relations": [
+            "market"
+          ]
+        },
+        {
+          "name": "trader_base",
+          "writable": true
+        },
+        {
+          "name": "trader_quote",
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "base_amount",
+          "type": "u64"
+        },
+        {
+          "name": "quote_amount",
+          "type": "u64"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "Book",
+      "discriminator": [
+        121,
+        34,
+        121,
+        35,
+        91,
+        62,
+        85,
+        222
+      ]
+    },
+    {
+      "name": "Market",
+      "discriminator": [
+        219,
+        190,
+        213,
+        55,
+        0,
+        227,
+        198,
+        154
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "Deposited",
+      "discriminator": [
+        111,
+        141,
+        26,
+        45,
+        161,
+        35,
+        100,
+        57
+      ]
+    },
+    {
+      "name": "OrderCancelled",
+      "discriminator": [
+        108,
+        56,
+        128,
+        68,
+        168,
+        113,
+        168,
+        239
+      ]
+    },
+    {
+      "name": "OrderFilled",
+      "discriminator": [
+        120,
+        124,
+        109,
+        66,
+        249,
+        116,
+        174,
+        30
+      ]
+    },
+    {
+      "name": "OrderPlaced",
+      "discriminator": [
+        96,
+        130,
+        204,
+        234,
+        169,
+        219,
+        216,
+        227
+      ]
+    },
+    {
+      "name": "Withdrawn",
+      "discriminator": [
+        20,
+        89,
+        223,
+        198,
+        194,
+        124,
+        219,
+        13
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "InvalidAmount",
+      "msg": "amount must be positive"
+    },
+    {
+      "code": 6001,
+      "name": "InvalidPrice",
+      "msg": "price must be positive"
+    },
+    {
+      "code": 6002,
+      "name": "BookFull",
+      "msg": "book is full"
+    },
+    {
+      "code": 6003,
+      "name": "NoSlot",
+      "msg": "no free trader slot"
+    },
+    {
+      "code": 6004,
+      "name": "UnknownTrader",
+      "msg": "trader has no slot in this book"
+    },
+    {
+      "code": 6005,
+      "name": "InsufficientBalance",
+      "msg": "insufficient free balance"
+    },
+    {
+      "code": 6006,
+      "name": "OrderNotFound",
+      "msg": "order not found"
+    },
+    {
+      "code": 6007,
+      "name": "NotOrderOwner",
+      "msg": "not the owner of this order"
+    },
+    {
+      "code": 6008,
+      "name": "SelfFill",
+      "msg": "an order cannot fill itself"
+    },
+    {
+      "code": 6009,
+      "name": "MathOverflow",
+      "msg": "arithmetic overflow"
+    },
+    {
+      "code": 6010,
+      "name": "MarketClosed",
+      "msg": "the series has matured; P and N are claims now, not instruments"
+    }
+  ],
+  "types": [
+    {
+      "name": "Book",
+      "docs": [
+        "The order book, balances included.",
+        "",
+        "This is the account that gets delegated. While it is delegated it is owned",
+        "by the delegation program, so every L1 instruction that touches it —",
+        "`deposit`, `withdraw` — fails Anchor's owner check automatically. That is",
+        "not a convenience: it is the property that stops the rollup's view of a",
+        "balance and the vault's actual contents from diverging."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "leg",
+            "type": {
+              "defined": {
+                "name": "Leg"
+              }
+            }
+          },
+          {
+            "name": "slots",
+            "type": {
+              "vec": {
+                "defined": {
+                  "name": "Slot"
+                }
+              }
+            }
+          },
+          {
+            "name": "orders",
+            "type": {
+              "vec": {
+                "defined": {
+                  "name": "Order"
+                }
+              }
+            }
+          },
+          {
+            "name": "next_order_id",
+            "type": "u64"
+          },
+          {
+            "name": "volume_base",
+            "docs": [
+              "Cumulative base matched. Survives commits, so it is the honest measure",
+              "of whether anyone is actually trading this leg."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Deposited",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "book",
+            "type": "pubkey"
+          },
+          {
+            "name": "trader",
+            "type": "pubkey"
+          },
+          {
+            "name": "base_amount",
+            "type": "u64"
+          },
+          {
+            "name": "quote_amount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Leg",
+      "docs": [
+        "Which leg of a series this book trades."
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "P"
+          },
+          {
+            "name": "N"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Market",
+      "docs": [
+        "Immutable wiring for one series' two books.",
+        "",
+        "Never delegated. It names the mints and vaults, and nothing about it",
+        "changes once created, so there is no reason to put it in a rollup."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "series",
+            "docs": [
+              "The `series::SeriesConfig` these legs belong to."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "p_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "n_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "quote_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "p_vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "n_vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "quote_vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "maturity_ts",
+            "docs": [
+              "Copied from the series at creation. Trading stops here — after",
+              "settlement P and N are claims on a frozen pool, not instruments."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Order",
+      "docs": [
+        "A resting limit order."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "id",
+            "type": "u64"
+          },
+          {
+            "name": "trader",
+            "docs": [
+              "Index into [`Book::slots`]."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "is_bid",
+            "type": "bool"
+          },
+          {
+            "name": "price",
+            "docs": [
+              "Quote raw units per [`BASE_UNIT`] of base."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "remaining",
+            "docs": [
+              "Base raw units still unfilled."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "active",
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "OrderCancelled",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "book",
+            "type": "pubkey"
+          },
+          {
+            "name": "trader",
+            "type": "pubkey"
+          },
+          {
+            "name": "id",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "OrderFilled",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "book",
+            "type": "pubkey"
+          },
+          {
+            "name": "taker",
+            "type": "pubkey"
+          },
+          {
+            "name": "id",
+            "type": "u64"
+          },
+          {
+            "name": "filled",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "OrderPlaced",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "book",
+            "type": "pubkey"
+          },
+          {
+            "name": "trader",
+            "type": "pubkey"
+          },
+          {
+            "name": "id",
+            "type": "u64"
+          },
+          {
+            "name": "is_bid",
+            "type": "bool"
+          },
+          {
+            "name": "price",
+            "type": "u64"
+          },
+          {
+            "name": "qty",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Slot",
+      "docs": [
+        "One trader's escrowed balance. Credited by `deposit` on L1, moved around by",
+        "matching in the rollup, drawn down by `withdraw` on L1."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "base_free",
+            "docs": [
+              "Base (P or N) available to sell or withdraw."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "base_locked",
+            "docs": [
+              "Base committed to resting asks."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "quote_free",
+            "docs": [
+              "Quote tokens available to bid or withdraw."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "quote_locked",
+            "docs": [
+              "Quote committed to resting bids."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "occupied",
+            "docs": [
+              "False for an unused slot. `owner` alone cannot say, since the default",
+              "pubkey is a legal value."
+            ],
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Withdrawn",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "book",
+            "type": "pubkey"
+          },
+          {
+            "name": "trader",
+            "type": "pubkey"
+          },
+          {
+            "name": "base_amount",
+            "type": "u64"
+          },
+          {
+            "name": "quote_amount",
+            "type": "u64"
+          }
+        ]
+      }
+    }
+  ],
+  "constants": [
+    {
+      "name": "BOOK_MAX_ORDERS",
+      "type": "u64",
+      "value": "128"
+    },
+    {
+      "name": "BOOK_MAX_TRADERS",
+      "docs": [
+        "Capacities, exposed so clients can refuse to build a transaction that",
+        "would fail on-chain."
+      ],
+      "type": "u64",
+      "value": "32"
+    }
+  ]
+}

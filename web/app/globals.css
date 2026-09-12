@@ -1,0 +1,537 @@
+@import "tailwindcss";
+
+/* Erodoro's editorial palette. It borrows the calm, low-noise discipline of
+   modern protocol sites while keeping the product's warm collateral accent.
+
+   Every colour below is declared once, here, as a `--color-*` token, and the
+   dark theme re-points the same tokens further down. A component that reaches
+   for a raw hex breaks that, so none of them do. */
+@theme {
+  --color-bg: var(--c-bg);
+  --color-panel: var(--c-panel);
+  --color-panel-2: var(--c-panel-2);
+  --color-line: var(--c-line);
+  --color-line-soft: var(--c-line-soft);
+
+  --color-text: var(--c-text);
+  --color-muted: var(--c-muted);
+  --color-dim: var(--c-dim);
+
+  --color-accent: var(--c-accent);
+  --color-accent-soft: var(--c-accent-soft);
+  /* The brand terracotta at fill strength is too light to carry small text on
+     cream (3.4:1). `accent-ink` is the same hue, darkened until it clears AA,
+     and is what every `text-accent-ink` call site uses. */
+  --color-accent-ink: var(--c-accent-ink);
+  /* The label colour that sits *on* a filled accent surface. It has to invert
+     with the theme: white on dark-theme's bright mint `p` is 2.3:1. */
+  --color-ink: var(--c-ink);
+
+  /* P is the senior, capped claim. N is the upside. Kept visually distinct
+     everywhere, so a glance at any number says which side it belongs to. */
+  --color-p: var(--c-p);
+  --color-n: var(--c-n);
+  --color-bid: var(--c-bid);
+  --color-ask: var(--c-ask);
+  --color-danger: var(--c-danger);
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-jost);
+  /* The landing page's editorial set. Applied only under `.editorial`. */
+  --font-editorial: var(--font-caslon);
+  --font-reading: var(--font-source-serif);
+  --font-kicker: var(--font-jetbrains);
+
+  /* One easing curve for everything that moves. A UI where each transition
+     picks its own timing reads as assembled rather than designed. */
+  --ease-ui: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/*
+  Light is the default and stays the product's identity. Dark is opt-in via the
+  header control, which writes `data-theme` on <html>; the inline script in
+  `app/layout.tsx` applies the stored choice before first paint so the page
+  never flashes the wrong palette.
+
+  The dark palette is a warm charcoal, not the blue-black every generated
+  dashboard reaches for. It has to look like the same product with the lights
+  off, which means the cream's warmth has to survive the inversion.
+*/
+:root {
+  --c-bg: #f2f0e9;
+  --c-panel: #fbfaf6;
+  --c-panel-2: #e8e4dc;
+  --c-line: #c9c4ba;
+  --c-line-soft: #ded9cf;
+
+  --c-text: #0a1118;
+  --c-muted: #4b535c;
+  --c-dim: #616766;
+
+  --c-accent: #c1512a;
+  --c-accent-soft: #a8421f;
+  --c-accent-ink: #a8421f;
+  --c-ink: #ffffff;
+
+  --c-p: #1c6b53;
+  --c-n: #8a5c00;
+  --c-bid: #2563a6;
+  --c-ask: #9c5228;
+  --c-danger: #b53b3b;
+
+  --chart-grid: rgb(10 17 24 / 10%);
+  --chart-label: rgb(10 17 24 / 52%);
+
+  /* Elevation, themed. Shadows tuned for cream are invisible on charcoal, so
+     the dark theme swaps them for a hairline lift instead of a soft drop. */
+  --shadow-panel: 0 16px 50px rgb(10 17 24 / 3.5%);
+  --shadow-raised: 0 12px 36px rgb(10 17 24 / 3.5%);
+  --shadow-pop: 0 20px 60px rgb(10 17 24 / 14%);
+  --glow-hero: color-mix(in oklab, var(--c-accent) 12%, transparent);
+  --tint-strength: 10%;
+}
+
+[data-theme="dark"] {
+  --c-bg: #14120f;
+  --c-panel: #1c1a16;
+  --c-panel-2: #262320;
+  --c-line: #3a3630;
+  --c-line-soft: #2c2925;
+
+  --c-text: #f4f1ea;
+  --c-muted: #a8a296;
+  --c-dim: #8f897d;
+
+  --c-accent: #ef7645;
+  --c-accent-soft: #d65d32;
+  --c-accent-ink: #ef7645;
+  --c-ink: #14120f;
+
+  --c-p: #4bbd92;
+  --c-n: #d9a441;
+  --c-bid: #5b9fe0;
+  --c-ask: #e08a52;
+  --c-danger: #e46a6a;
+
+  --chart-grid: rgb(244 241 234 / 9%);
+  --chart-label: rgb(244 241 234 / 48%);
+
+  --shadow-panel: 0 1px 0 rgb(244 241 234 / 4%);
+  --shadow-raised: 0 1px 0 rgb(244 241 234 / 5%);
+  --shadow-pop: 0 24px 60px rgb(0 0 0 / 55%);
+  --glow-hero: color-mix(in oklab, var(--c-accent) 16%, transparent);
+  --tint-strength: 16%;
+}
+
+@layer base {
+  html {
+    background: var(--color-bg);
+    color: var(--color-text);
+    -webkit-font-smoothing: antialiased;
+    scroll-behavior: smooth;
+    color-scheme: light;
+  }
+
+  [data-theme="dark"] {
+    color-scheme: dark;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    line-height: 1.65;
+    background:
+      radial-gradient(circle at 12% -8%, var(--glow-hero), transparent 28rem),
+      var(--color-bg);
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--color-accent) 30%, transparent);
+  }
+
+  /* One visible focus treatment for every interactive element. Trading screens
+     get driven from the keyboard, and the browser default is invisible against
+     both palettes. */
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  /* Range input, used by the payoff calculator. */
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-runnable-track {
+    height: 3px;
+    border-radius: 999px;
+    background: var(--color-line);
+  }
+  input[type="range"]::-moz-range-track {
+    height: 3px;
+    border-radius: 999px;
+    background: var(--color-line);
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    margin-top: -8px;
+    width: 19px;
+    height: 19px;
+    border-radius: 50%;
+    background: var(--color-accent);
+    border: 3px solid var(--color-bg);
+    box-shadow: 0 0 0 1px var(--color-accent);
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: var(--color-accent);
+    border: 3px solid var(--color-bg);
+    box-shadow: 0 0 0 1px var(--color-accent);
+  }
+
+  /*
+    The app header is sticky and the phone keeps a fixed trade bar at the
+    bottom, so anything scrolled to programmatically -- by the guide, by an
+    anchor, by a browser restoring focus -- has to clear both. Without this it
+    lands underneath the header, where it is visible but cannot be clicked.
+  */
+  button,
+  a,
+  input,
+  select,
+  textarea,
+  summary,
+  [role="button"],
+  [data-tour] {
+    scroll-margin-top: 5.5rem;
+    scroll-margin-bottom: 5.5rem;
+  }
+
+  /* Numbers that change in place must not reflow the row they sit in. */
+  .font-mono,
+  code,
+  input[inputmode="decimal"] {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer utilities {
+  .eyebrow {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--color-dim);
+  }
+  .font-display {
+    font-family: var(--font-display);
+  }
+  .editorial-rule {
+    border-top: 1px solid var(--color-line);
+  }
+  .ink-band {
+    background: var(--color-text);
+    color: var(--color-bg);
+  }
+  /* Inside the band the palette inverts, so the secondary text tones have to
+     be re-derived against it. The alphas are the lowest that clear 4.5:1 in
+     both themes — the band inverts too, and dark is the tighter of the two. */
+  .ink-band .text-muted {
+    color: color-mix(in oklab, var(--color-bg) 80%, transparent);
+  }
+  .ink-band .text-dim,
+  /* `.kicker` is 11px, so it needs the 4.5:1 alpha rather than the large-text
+     one -- which is what `.text-dim` was already tuned to. */
+  .ink-band .kicker {
+    color: color-mix(in oklab, var(--color-bg) 66%, transparent);
+  }
+  .ink-band .reveal > * {
+    --reveal-from: color-mix(in oklab, var(--color-bg) 80%, transparent);
+    --reveal-to: var(--color-bg);
+  }
+  /* Soft warm light behind the hero. Decoration only, kept subtle enough
+     that it reads as depth rather than as a gradient. */
+  .hero-glow {
+    background: radial-gradient(
+      60rem 30rem at 15% -10%,
+      var(--glow-hero),
+      transparent 70%
+    );
+  }
+
+  .shadow-panel { box-shadow: var(--shadow-panel); }
+  .shadow-raised { box-shadow: var(--shadow-raised); }
+  .shadow-pop { box-shadow: var(--shadow-pop); }
+
+  .rise-in {
+    animation: rise-in 260ms var(--ease-ui) both;
+  }
+
+  /* A bottom sheet slides up from below the fold. `rise-in` travels downward,
+     which on a bottom-anchored element means it starts *past* the viewport
+     edge -- briefly taller than the screen, and briefly scrollable. */
+  .sheet-in {
+    animation: sheet-in 240ms var(--ease-ui) both;
+  }
+  @keyframes sheet-in {
+    from { transform: translateY(100%); }
+    to { transform: none; }
+  }
+  @keyframes rise-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: none; }
+  }
+
+  /* --- Landing page ---------------------------------------------------- */
+
+  /*
+    The editorial scope.
+  
+    The landing page reads as a broadsheet: a Caslon for display, a text serif
+    for reading, a mono for the technical labels. The application keeps Geist,
+    because a serif at 13px in a dense order book buys atmosphere and costs
+    legibility. Scoping it to a class rather than swapping `--font-sans`
+    globally is what keeps that line drawn in exactly one place.
+  
+    Shapes are square throughout. Not a preference -- a rounded corner reads as
+    software chrome, and the whole point of this page is to read as print.
+  */
+  .editorial {
+    font-family: var(--font-reading), Georgia, serif;
+  }
+  /* The header sits above `.editorial` in the tree, so it takes the face
+     explicitly rather than inheriting it. */
+  .editorial-wordmark {
+    font-family: var(--font-editorial), Georgia, serif;
+    font-weight: 700;
+  }
+  .editorial :where(button, input, a[data-cta], [data-panel], img, figure) {
+    border-radius: 0;
+  }
+
+  /* Display type. The landing headline had been capped at Tailwind's text-7xl,
+     which is the size a section heading wants, not the size the one sentence a
+     visitor actually reads wants. `clamp` rather than breakpoints so the step
+     between 390px and 1440px is continuous instead of jumping twice. */
+  /*
+    The wordmark set into the hero photograph.
+
+    `difference` alone, with no second blend on the glyphs: it inverts against
+    whatever it happens to sit on, so the word stays legible over the bright
+    grid paper and the dark engraving without either a scrim or a second
+    colour for the dark theme. Layering `overlay` on top of it -- which is
+    where this started -- flattened it to almost nothing over the light half.
+  */
+  .hero-wordmark {
+    font-family: var(--font-editorial), Georgia, serif;
+    font-size: clamp(3rem, 11vw, 9rem);
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    line-height: 1;
+    text-transform: uppercase;
+    color: #fff;
+  }
+
+  .display-1 {
+    font-family: var(--font-editorial), Georgia, serif;
+    font-size: clamp(2.4rem, 5.6vw, 4.75rem);
+    line-height: 0.95;
+    letter-spacing: -0.035em;
+    font-weight: 400;
+  }
+  .display-2 {
+    font-family: var(--font-editorial), Georgia, serif;
+    font-size: clamp(2rem, 4.8vw, 4.5rem);
+    line-height: 0.96;
+    letter-spacing: -0.03em;
+    font-weight: 400;
+  }
+  .display-3 {
+    font-family: var(--font-editorial), Georgia, serif;
+    font-size: clamp(1.5rem, 2.6vw, 2.1rem);
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    font-weight: 400;
+  }
+  /* The kicker above a card's body copy. Smaller and wider than `.eyebrow`,
+     which labels a whole section. */
+  .kicker {
+    font-family: var(--font-kicker), var(--font-mono), monospace;
+    font-size: 0.625rem;
+    font-weight: 500;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--color-dim);
+  }
+  /* The technical label: addresses, statuses, row numbers. */
+  .label-mono {
+    font-family: var(--font-kicker), var(--font-mono), monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.02em;
+  }
+  /* Reading copy. Serif needs a touch more leading than the sans it replaces. */
+  .prose-editorial {
+    font-family: var(--font-reading), Georgia, serif;
+    line-height: 1.65;
+  }
+
+  /*
+    A statement that resolves as it is read: the words begin at the muted tone
+    and settle to full ink.
+
+    Built so the *resting* state is the readable one. The global
+    reduced-motion block below forces `animation-duration: 0.01ms`, which lands
+    a `both`-filled animation on its final frame -- so someone who asked for no
+    motion gets the finished sentence, immediately. Written the other way round
+    (fading from transparent, applied by script) it would render nothing at all
+    for exactly the people least able to afford that.
+  */
+  .reveal > * {
+    /* Both ends are variables so one keyframe serves every background. The
+       audit caught why this matters: inside `.ink-band` the page's muted tone
+       is dark ink on a dark band -- 2.43:1, unreadable until it happened to
+       animate. A word that has not resolved yet still has to be legible. */
+    --reveal-from: var(--color-muted);
+    --reveal-to: var(--color-text);
+    color: var(--reveal-from);
+    animation: reveal-ink linear both;
+    animation-timeline: view();
+    /* Staggered by word index. Every word on a line shares a Y position, so
+       without the offset the whole line would resolve in a single step. */
+    animation-range: entry calc(8% + (var(--i, 0) * 1.6%)) cover 46%;
+  }
+  @keyframes reveal-ink {
+    to { color: var(--reveal-to); }
+  }
+  /* No scroll timelines: show the finished state rather than a permanently
+     half-read sentence. `@supports not` covers the browsers, the media query
+     covers the preference. */
+  @supports not (animation-timeline: view()) {
+    .reveal > * { color: var(--reveal-to); animation: none; }
+  }
+
+  /*
+    The ticker strips that bound the hero. Two copies of the same content
+    translate by exactly half the track, so the seam lands where the first copy
+    ends and the loop is invisible.
+  */
+  .marquee {
+    display: flex;
+    width: max-content;
+    animation: marquee 42s linear infinite;
+  }
+  @keyframes marquee {
+    to { transform: translateX(-50%); }
+  }
+
+  /* The hero still is authored greyscale and tinted here, so one asset serves
+     both themes. Multiply lets the cream through the paper; screen keeps the
+     engraving legible against the charcoal instead of blocking up. */
+  .hero-art {
+    filter: grayscale(1) contrast(1.06);
+    mix-blend-mode: multiply;
+  }
+  /*
+    Dark inverts rather than dims. Screening a photograph of white paper just
+    lifts the whole frame to a flat grey -- the engraving disappears and the
+    band reads as a placeholder. Inverted, the paper falls to black and the ink
+    comes up as pale line work, which is what an engraving looks like in the
+    dark and keeps every line the light theme shows.
+  */
+  [data-theme="dark"] .hero-art {
+    filter: grayscale(1) invert(1) contrast(1.08) brightness(0.92);
+    mix-blend-mode: screen;
+    opacity: 0.85;
+  }
+
+  /* The live-execution dot. Slow enough to read as a heartbeat rather than a
+     warning light. */
+  .live-dot {
+    animation: live-dot 2.2s ease-in-out infinite;
+  }
+  @keyframes live-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.25; }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* The rule above collapses every animation to its final frame, which for an
+   infinite marquee means parked halfway through the loop with the seam in
+   view. These want to stop where they started. */
+@media (prefers-reduced-motion: reduce) {
+  .marquee {
+    animation: none !important;
+    transform: none !important;
+  }
+  .reveal > * {
+    color: var(--reveal-to);
+  }
+}
+
+/* The wallet adapter ships its own stylesheet. These override just enough of
+   it to sit inside this design rather than beside it. */
+.wallet-adapter-button-trigger {
+  background: var(--color-text) !important;
+  color: var(--color-bg) !important;
+  border-radius: 2px !important;
+  height: 40px !important;
+  font-family: var(--font-sans) !important;
+  font-size: 0.9rem !important;
+  font-weight: 500 !important;
+  padding: 0 16px !important;
+  transition: background-color 160ms var(--ease-ui) !important;
+}
+.wallet-adapter-button-trigger:not([disabled]):hover {
+  background: var(--color-accent) !important;
+}
+.wallet-adapter-modal-wrapper {
+  background: var(--color-panel) !important;
+  border: 1px solid var(--color-line);
+  border-radius: 6px !important;
+}
+.wallet-adapter-modal-button-close {
+  background: var(--color-panel-2) !important;
+}
+.wallet-adapter-modal-title {
+  color: var(--color-text) !important;
+}
+.wallet-adapter-modal-list li button {
+  background: var(--color-panel-2) !important;
+  color: var(--color-text) !important;
+}
+.wallet-adapter-dropdown-list {
+  background: var(--color-panel) !important;
+  border: 1px solid var(--color-line) !important;
+  border-radius: 6px !important;
+  box-shadow: var(--shadow-pop) !important;
+}
+.wallet-adapter-dropdown-list-item {
+  color: var(--color-text) !important;
+  font-family: var(--font-sans) !important;
+}
+.wallet-adapter-dropdown-list-item:hover {
+  background: var(--color-panel-2) !important;
+}

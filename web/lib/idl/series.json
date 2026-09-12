@@ -1,0 +1,1703 @@
+{
+  "address": "AJPJRQQpgT461SaiBvZY4ixdS6S5R2QYQsod6Qdpm8p9",
+  "metadata": {
+    "name": "series",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Covered-call vault and settlement engine for a tokenized equity."
+  },
+  "instructions": [
+    {
+      "name": "create_series",
+      "docs": [
+        "Open a series over a collateral mint, an oracle feed, a strike and a",
+        "maturity.",
+        "",
+        "Permissionless by design. What makes a series *canonical* is the",
+        "factory's registry, not the ability to create one. Creating a",
+        "series confers no power over it: `factory_authority` is recorded for",
+        "cross-referencing and `admin` gets only the pause and dust paths."
+      ],
+      "discriminator": [
+        181,
+        9,
+        52,
+        120,
+        197,
+        221,
+        42,
+        142
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "factory_authority",
+          "docs": [
+            "The factory PDA when created through the factory, or whoever created it",
+            "otherwise. Recorded, never trusted — but it *is* a PDA seed.",
+            "",
+            "Without it, `(collateral_mint, strike, maturity)` would name exactly one",
+            "address protocol-wide, and creation is permissionless: anyone could",
+            "front-run the factory, occupy the address the factory was about to use,",
+            "and make the canonical series for those parameters impossible to create",
+            "ever again. Seeding on the creator gives every creator their own address",
+            "space, so squatting the factory's is not possible."
+          ],
+          "signer": true
+        },
+        {
+          "name": "admin",
+          "docs": [
+            "paths, and never signs here."
+          ]
+        },
+        {
+          "name": "series",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  101,
+                  114,
+                  105,
+                  101,
+                  115
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "factory_authority"
+              },
+              {
+                "kind": "account",
+                "path": "collateral_mint"
+              },
+              {
+                "kind": "arg",
+                "path": "params.strike"
+              },
+              {
+                "kind": "arg",
+                "path": "params.maturity_ts"
+              }
+            ]
+          }
+        },
+        {
+          "name": "collateral_mint"
+        },
+        {
+          "name": "collateral_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "series"
+              },
+              {
+                "kind": "account",
+                "path": "collateral_token_program"
+              },
+              {
+                "kind": "account",
+                "path": "collateral_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "oracle_adapter",
+          "docs": [
+            "The feed this series will settle against, owned by the oracle adapter."
+          ]
+        },
+        {
+          "name": "p_mint",
+          "docs": [
+            "P and N are plain SPL Token mints, not Token-2022: only the collateral",
+            "carries extensions, and keeping the claim tokens simple means they",
+            "trade anywhere with no extension handling."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  45,
+                  109,
+                  105,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "series"
+              }
+            ]
+          }
+        },
+        {
+          "name": "n_mint",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  110,
+                  45,
+                  109,
+                  105,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "series"
+              }
+            ]
+          }
+        },
+        {
+          "name": "fee_recipient"
+        },
+        {
+          "name": "collateral_token_program"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "CreateSeriesParams"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "merge",
+      "docs": [
+        "Burn equal `P` and `N` and return `amount` collateral.",
+        "",
+        "Permitted while `Open` *or* `Paused`, never after settlement — a pause",
+        "stops new risk without trapping the collateral behind existing claims."
+      ],
+      "discriminator": [
+        148,
+        141,
+        236,
+        47,
+        174,
+        126,
+        69,
+        111
+      ],
+      "accounts": [
+        {
+          "name": "holder",
+          "signer": true
+        },
+        {
+          "name": "series"
+        },
+        {
+          "name": "collateral_mint",
+          "writable": true,
+          "relations": [
+            "series"
+          ]
+        },
+        {
+          "name": "collateral_vault",
+          "writable": true,
+          "relations": [
+            "series"
+          ]
+        },
+        {
+          "name": "holder_collateral",
+          "writable": true
+        },
+        {
+          "name": "p_mint",
+          "writable": true,
+          "relations": [
+            "series"
+          ]
+        },
+        {
+          "name": "n_mint",
+          "writable": true,
+          "relations": [
+            "series"
+          ]
+        },
+        {
+          "name": "holder_p",
+          "writable": true
+        },
+        {
+          "name": "holder_n",
+          "writable": true
+        },
+        {
+          "name": "collateral_token_program"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "pause_splits",
+      "discriminator": [
+        3,
+        215,
+        219,
+        55,
+        27,
+        61,
+        246,
+        126
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "signer": true,
+          "relations": [
+            "series"
+          ]
+        },
+        {
+          "name": "series",
+          "writable": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "redeem_n",
+      "docs": [
+        "Burn `amount` N and pay the pro-rata N payout."
+      ],
+      "discriminator": [
+        48,
+        213,
+        124,
+        207,
+        253,
+        219,
+        141,
+        168
+      ],
+      "accounts": [
+        {
+          "name": "holder",
+          "signer": true
+        },
+        {
+          "name": "series",
+          "relations": [
+            "settlement"
+          ]
+        },
+        {
+          "name": "settlement",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  101,
+                  116,
+                  116,
+                  108,
+                  101,
+                  109,
+                  101,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "series"
+              }
+            ]
+          }
+        },
+        {
+          "name": "collateral_mint",
+          "writable": true,
+          "relations": [
+            "series"
+          ]
+        },
+        {
+          "name": "collateral_vault",
+          "writable": true,
+          "relations": [
+            "series"
+          ]
+        },
+        {
+          "name": "holder_collateral",
+          "writable": true
+        },
+        {
+          "name": "n_mint",
+          "writable": true,
+          "relations": [
+            "series"
+          ]
+        },
+        {
+          "name": "holder_n",
+          "writable": true
+        },
+        {
+          "name": "collateral_token_program"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "redeem_p",
+      "docs": [
+        "Burn `amount` P and pay the pro-rata P payout."
+      ],
+      "discriminator": [
+        38,
+        10,
+        35,
+        199,
+        210,
+        174,
+        56,
+        224
+      ],
+      "accounts": [
+        {
+          "name": "holder",
+          "signer": true
+        },
+        {
+          "name": "series",
+          "relations": [
+            "settlement"
+          ]
+        },
+        {
+          "name": "settlement",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  101,
+                  116,
+                  116,
+                  108,
+                  101,
+                  109,
+                  101,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "series"
+              }
+            ]
+          }
+        },
+        {
+          "name": "collateral_mint",
+          "writable": true,
+          "relations": [
+            "series"
+          ]
+        },
+        {
+          "name": "collateral_vault",
+          "writable": true,
+          "relations": [
+            "series"
+          ]
+        },
+        {
+          "name": "holder_collateral",
+          "writable": true
+        },
+        {
+          "name": "p_mint",
+          "writable": true,
+          "relations": [
+            "series"
+          ]
+        },
+        {
+          "name": "holder_p",
+          "writable": true
+        },
+        {
+          "name": "collateral_token_program"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "renounce_admin",
+      "docs": [
+        "Permanently give up the admin role for this series.",
+        "",
+        "§14 asks whether the admin should survive at all. The argument for",
+        "keeping it: the issuer already holds four kill switches, so a contract",
+        "admin adds little marginal trust. The argument against: it is one more",
+        "key to lose. Both are right, and which dominates depends on the series",
+        "— a long-dated series over a mint whose issuer has just armed a hook",
+        "wants a pause; a short-dated one wants nothing that can be",
+        "compromised.",
+        "",
+        "So the decision is made per series, at runtime, and it is one-way.",
+        "After this, `admin` is the zero address: no signer can match it, and",
+        "`pause_splits`, `unpause_splits` and `sweep_dust` are dead for the life",
+        "of the series. The cost is that residual dust can never be swept — it",
+        "stays in the vault, which is the right direction for a trade of",
+        "convenience against trust."
+      ],
+      "discriminator": [
+        223,
+        213,
+        55,
+        194,
+        0,
+        108,
+        225,
+        137
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "signer": true,
+          "relations": [
+            "series"
+          ]
+        },
+        {
+          "name": "series",
+          "writable": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "settle",
+      "docs": [
+        "Freeze the series against the oracle price.",
+        "",
+        "Permissionless and callable once. Anyone can poke it; nobody can choose",
+        "the price — the quote must carry the series' own feed id, be fresh, and",
+        "land inside the settlement window placed at a real market close (§8)."
+      ],
+      "discriminator": [
+        175,
+        42,
+        185,
+        87,
+        144,
+        131,
+        102,
+        212
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "docs": [
+            "Settlement is permissionless; whoever pokes it pays for the account."
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "series",
+          "writable": true
+        },
+        {
+          "name": "settlement",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  101,
+                  116,
+                  116,
+                  108,
+                  101,
+                  109,
+                  101,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "series"
+              }
+            ]
+          }
+        },
+        {
+          "name": "collateral_mint",
+          "relations": [
+            "series"
+          ]
+        },
+        {
+          "name": "collateral_vault",
+          "relations": [
+            "series"
+          ]
+        },
+        {
+          "name": "p_mint",
+          "relations": [
+            "series"
+          ]
+        },
+        {
+          "name": "n_mint",
+          "relations": [
+            "series"
+          ]
+        },
+        {
+          "name": "oracle_adapter",
+          "relations": [
+            "series"
+          ]
+        },
+        {
+          "name": "price_source",
+          "docs": [
+            "the Pyth receiver, and decoded as `PriceUpdateV2` by",
+            "`read_quote_at_or_after`."
+          ]
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "split",
+      "docs": [
+        "Lock `amount` collateral and mint equal `P` and `N` to the holder."
+      ],
+      "discriminator": [
+        124,
+        189,
+        27,
+        43,
+        216,
+        40,
+        147,
+        66
+      ],
+      "accounts": [
+        {
+          "name": "holder",
+          "signer": true
+        },
+        {
+          "name": "series"
+        },
+        {
+          "name": "collateral_mint",
+          "writable": true,
+          "relations": [
+            "series"
+          ]
+        },
+        {
+          "name": "collateral_vault",
+          "writable": true,
+          "relations": [
+            "series"
+          ]
+        },
+        {
+          "name": "holder_collateral",
+          "writable": true
+        },
+        {
+          "name": "p_mint",
+          "writable": true,
+          "relations": [
+            "series"
+          ]
+        },
+        {
+          "name": "n_mint",
+          "writable": true,
+          "relations": [
+            "series"
+          ]
+        },
+        {
+          "name": "receiver_p",
+          "writable": true
+        },
+        {
+          "name": "receiver_n",
+          "writable": true
+        },
+        {
+          "name": "fee_vault",
+          "docs": [
+            "Required only when `fee_bps > 0`, which is never in V1."
+          ],
+          "writable": true,
+          "optional": true
+        },
+        {
+          "name": "collateral_token_program"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "sweep_dust",
+      "docs": [
+        "Sweep rounding dust to the fee recipient, only once every claim token",
+        "has been redeemed."
+      ],
+      "discriminator": [
+        9,
+        49,
+        242,
+        88,
+        156,
+        84,
+        109,
+        15
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "signer": true,
+          "relations": [
+            "series"
+          ]
+        },
+        {
+          "name": "series"
+        },
+        {
+          "name": "collateral_mint",
+          "writable": true,
+          "relations": [
+            "series"
+          ]
+        },
+        {
+          "name": "collateral_vault",
+          "writable": true,
+          "relations": [
+            "series"
+          ]
+        },
+        {
+          "name": "fee_vault",
+          "writable": true
+        },
+        {
+          "name": "p_mint",
+          "relations": [
+            "series"
+          ]
+        },
+        {
+          "name": "n_mint",
+          "relations": [
+            "series"
+          ]
+        },
+        {
+          "name": "collateral_token_program"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "unpause_splits",
+      "discriminator": [
+        46,
+        12,
+        255,
+        148,
+        149,
+        190,
+        101,
+        155
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "signer": true,
+          "relations": [
+            "series"
+          ]
+        },
+        {
+          "name": "series",
+          "writable": true
+        }
+      ],
+      "args": []
+    }
+  ],
+  "accounts": [
+    {
+      "name": "FeedConfig",
+      "discriminator": [
+        75,
+        97,
+        12,
+        15,
+        89,
+        221,
+        78,
+        71
+      ]
+    },
+    {
+      "name": "SeriesConfig",
+      "discriminator": [
+        251,
+        96,
+        115,
+        130,
+        218,
+        124,
+        91,
+        41
+      ]
+    },
+    {
+      "name": "Settlement",
+      "discriminator": [
+        55,
+        11,
+        219,
+        33,
+        36,
+        136,
+        40,
+        182
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "AdminRenounced",
+      "discriminator": [
+        179,
+        238,
+        157,
+        220,
+        250,
+        72,
+        118,
+        99
+      ]
+    },
+    {
+      "name": "DustSwept",
+      "discriminator": [
+        131,
+        70,
+        179,
+        205,
+        208,
+        80,
+        13,
+        168
+      ]
+    },
+    {
+      "name": "MergeExecuted",
+      "discriminator": [
+        212,
+        9,
+        237,
+        250,
+        181,
+        177,
+        71,
+        244
+      ]
+    },
+    {
+      "name": "Redeemed",
+      "discriminator": [
+        14,
+        29,
+        183,
+        71,
+        31,
+        165,
+        107,
+        38
+      ]
+    },
+    {
+      "name": "SeriesCreated",
+      "discriminator": [
+        2,
+        164,
+        54,
+        38,
+        24,
+        181,
+        233,
+        180
+      ]
+    },
+    {
+      "name": "SeriesSettled",
+      "discriminator": [
+        119,
+        185,
+        208,
+        158,
+        40,
+        59,
+        197,
+        235
+      ]
+    },
+    {
+      "name": "ShortfallObserved",
+      "discriminator": [
+        238,
+        147,
+        218,
+        208,
+        7,
+        95,
+        60,
+        79
+      ]
+    },
+    {
+      "name": "SplitExecuted",
+      "discriminator": [
+        147,
+        176,
+        193,
+        145,
+        52,
+        30,
+        166,
+        53
+      ]
+    },
+    {
+      "name": "SplitsPaused",
+      "discriminator": [
+        94,
+        82,
+        132,
+        197,
+        189,
+        72,
+        80,
+        87
+      ]
+    }
+  ],
+  "types": [
+    {
+      "name": "AdminRenounced",
+      "docs": [
+        "The admin role was given up for good. Nothing can pause this series or",
+        "sweep its dust afterwards."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "series",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "CreateSeriesParams",
+      "docs": [
+        "Parameters for a new series.",
+        "",
+        "Grouped into one struct so the PDA seeds can reference `params.strike` and",
+        "`params.maturity_ts` without pinning the order of a long argument list."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "strike",
+            "type": "i128"
+          },
+          {
+            "name": "maturity_ts",
+            "type": "i64"
+          },
+          {
+            "name": "price_decimals",
+            "type": "u32"
+          },
+          {
+            "name": "settlement_delay_secs",
+            "type": "i64"
+          },
+          {
+            "name": "max_oracle_age_secs",
+            "type": "i64"
+          },
+          {
+            "name": "max_price_lag_secs",
+            "type": "i64"
+          },
+          {
+            "name": "min_split_amount",
+            "type": "u64"
+          },
+          {
+            "name": "fee_bps",
+            "type": "u16"
+          }
+        ]
+      }
+    },
+    {
+      "name": "DustSwept",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "series",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "FeedConfig",
+      "docs": [
+        "Immutable-ish identity of a price feed. `feed_id` never changes; the",
+        "account it is read from can be rotated by the admin."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "feed_id",
+            "docs": [
+              "Pyth feed id for the pair. Every quote is checked against this, so a",
+              "series can never settle against the price of a different asset."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "source",
+            "type": "pubkey"
+          },
+          {
+            "name": "max_age_secs",
+            "docs": [
+              "Maximum accepted staleness of a quote relative to the cluster clock."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "min_verification_signatures",
+            "docs": [
+              "Minimum guardian signatures a partially-verified Pyth update must",
+              "carry. `VerificationLevel::Full` always clears it. A zero floor accepts",
+              "an update backed by no signatures at all, so mainnet configs must set",
+              "this."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "MergeExecuted",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "series",
+            "type": "pubkey"
+          },
+          {
+            "name": "holder",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Redeemed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "series",
+            "type": "pubkey"
+          },
+          {
+            "name": "holder",
+            "type": "pubkey"
+          },
+          {
+            "name": "is_p_side",
+            "type": "bool"
+          },
+          {
+            "name": "burned",
+            "type": "u64"
+          },
+          {
+            "name": "quoted",
+            "type": "u64"
+          },
+          {
+            "name": "paid",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SeriesConfig",
+      "docs": [
+        "Configuration of one series, fixed at creation.",
+        "",
+        "Everything here except [`Self::status`] is immutable for the life of the",
+        "series. In particular the strike, maturity, oracle and collateral mint are",
+        "permanent. That is non-negotiable."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "factory",
+            "docs": [
+              "Whoever created this series. The factory sets itself here; a series",
+              "created outside the factory records its creator. It confers no",
+              "authority — it exists so the canonical registry can be cross-checked."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "admin",
+            "docs": [
+              "May pause and unpause splits, and sweep dust once every claim token is",
+              "redeemed. Deliberately has no path to active collateral."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "collateral_mint",
+            "docs": [
+              "The Token-2022 mint being escrowed."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "collateral_vault",
+            "docs": [
+              "The series' associated token account."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "oracle_adapter",
+            "docs": [
+              "`oracle_adapter::FeedConfig` pinning which feed may settle this series."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "p_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "n_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "strike",
+            "docs": [
+              "Strike in USD, expressed with `price_decimals`. Never mutated — a",
+              "corporate action is applied by deriving an effective strike at",
+              "settlement, not by rewriting this."
+            ],
+            "type": "i128"
+          },
+          {
+            "name": "price_decimals",
+            "docs": [
+              "Decimals shared by `strike` and the normalized oracle price."
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "collateral_decimals",
+            "docs": [
+              "decimals of the collateral mint, captured at creation and passed",
+              "to every `transfer_checked`. 8 for TSLAx."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "multiplier_at_creation",
+            "docs": [
+              "§6: the mint's `scaledUiAmount` multiplier when the series was",
+              "created, as a `MULTIPLIER_SCALE` fixed-point integer. Settlement",
+              "compares it against the multiplier in force at the price timestamp to",
+              "derive the effective strike."
+            ],
+            "type": "i128"
+          },
+          {
+            "name": "maturity_ts",
+            "docs": [
+              "Unix timestamp at which the option matures. Should be placed at a real",
+              "market close; see `max_price_lag_secs`."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "settlement_delay_secs",
+            "docs": [
+              "Seconds after maturity before `settle` is callable."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "max_oracle_age_secs",
+            "docs": [
+              "Maximum accepted oracle staleness relative to the cluster clock."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "max_price_lag_secs",
+            "docs": [
+              "§8: how far after `maturity_ts` an acceptable price print may",
+              "sit. With `maturity_ts` placed at a market close, this bounds how far",
+              "settlement may drift from that close. It does not prove that the",
+              "underlying market was open; Pyth does not publish that status on-chain."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "min_split_amount",
+            "docs": [
+              "Minimum deposit per split, in raw collateral units."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "fee_bps",
+            "docs": [
+              "Fee in basis points. `0` for V1."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "fee_recipient",
+            "docs": [
+              "Recipient of fees and swept dust."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "status",
+            "type": {
+              "defined": {
+                "name": "SeriesStatus"
+              }
+            }
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SeriesCreated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "series",
+            "type": "pubkey"
+          },
+          {
+            "name": "collateral_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "p_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "n_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "strike",
+            "type": "i128"
+          },
+          {
+            "name": "price_decimals",
+            "type": "u32"
+          },
+          {
+            "name": "maturity_ts",
+            "type": "i64"
+          },
+          {
+            "name": "multiplier_at_creation",
+            "type": "i128"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SeriesSettled",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "series",
+            "type": "pubkey"
+          },
+          {
+            "name": "price",
+            "type": "i128"
+          },
+          {
+            "name": "price_decimals",
+            "type": "u32"
+          },
+          {
+            "name": "price_ts",
+            "type": "i64"
+          },
+          {
+            "name": "collateral",
+            "type": "u64"
+          },
+          {
+            "name": "p_pool",
+            "type": "u64"
+          },
+          {
+            "name": "n_pool",
+            "type": "u64"
+          },
+          {
+            "name": "effective_strike",
+            "type": "i128"
+          },
+          {
+            "name": "multiplier_at_creation",
+            "type": "i128"
+          },
+          {
+            "name": "multiplier_at_settlement",
+            "type": "i128"
+          },
+          {
+            "name": "supply_mismatch",
+            "docs": [
+              "Someone burned P or N outside the protocol before settlement."
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "under_collateralized",
+            "docs": [
+              "The vault held less than the senior claim when the series froze."
+            ],
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SeriesStatus",
+      "docs": [
+        "Lifecycle status of a series.",
+        "",
+        "`Paused` blocks new splits but",
+        "deliberately still allows `merge`, so a pause can never trap collateral."
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Open"
+          },
+          {
+            "name": "Paused"
+          },
+          {
+            "name": "Settled"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Settlement",
+      "docs": [
+        "Frozen settlement result. Written once by `settle`; afterwards only the",
+        "running redemption counters change."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "series",
+            "type": "pubkey"
+          },
+          {
+            "name": "price",
+            "docs": [
+              "Final price, normalized to `price_decimals`."
+            ],
+            "type": "i128"
+          },
+          {
+            "name": "price_decimals",
+            "type": "u32"
+          },
+          {
+            "name": "price_ts",
+            "docs": [
+              "Publish time of the quote settled against."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "settled_ts",
+            "docs": [
+              "Cluster time when settlement executed."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "collateral_at_settlement",
+            "docs": [
+              "Vault balance captured at settlement."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "p_supply_at_settlement",
+            "type": "u64"
+          },
+          {
+            "name": "n_supply_at_settlement",
+            "type": "u64"
+          },
+          {
+            "name": "p_pool",
+            "docs": [
+              "Collateral allocated to the P side. Immutable after settlement."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "n_pool",
+            "docs": [
+              "Collateral allocated to the N side. Immutable after settlement."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "p_redeemed",
+            "docs": [
+              "Quoted claim retired by P redeemers so far.",
+              "",
+              "This tracks the *pro-rata claim*, not the amount actually transferred,",
+              "so that the outstanding obligation stays correct under a shortfall and",
+              "every redeemer sees the same ratio (§7). `p_redeemed <= p_pool` is the",
+              "invariant."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "n_redeemed",
+            "type": "u64"
+          },
+          {
+            "name": "p_paid",
+            "docs": [
+              "§7: collateral actually paid out, which is less than the quoted",
+              "claim whenever the issuer has drained the vault. Kept alongside",
+              "`p_redeemed` so a haircut is auditable after the fact rather than",
+              "inferred from the difference between two other numbers."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "n_paid",
+            "type": "u64"
+          },
+          {
+            "name": "multiplier_at_settlement",
+            "docs": [
+              "§6: the multiplier in force at `price_ts`."
+            ],
+            "type": "i128"
+          },
+          {
+            "name": "effective_strike",
+            "docs": [
+              "§6: the strike actually used, derived from the stored strike and",
+              "the two multipliers. Stored so any payout can be audited later."
+            ],
+            "type": "i128"
+          },
+          {
+            "name": "shortfall_observed",
+            "docs": [
+              "§7: set once the vault has ever been observed holding less than",
+              "it owes — at settlement, or at any redemption after it."
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "supply_mismatch",
+            "docs": [
+              "the claim supplies disagreed at settlement, meaning someone",
+              "burned P or N outside the protocol. Recorded rather than rejected,",
+              "because rejecting it would let anyone strand a series permanently."
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ShortfallObserved",
+      "docs": [
+        "Emitted whenever the vault holds less than it owes — the on-chain signal",
+        "that the issuer's permanent delegate has moved collateral out of a settled",
+        "series (§7)."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "series",
+            "type": "pubkey"
+          },
+          {
+            "name": "quoted",
+            "type": "u64"
+          },
+          {
+            "name": "paid",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SplitExecuted",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "series",
+            "type": "pubkey"
+          },
+          {
+            "name": "holder",
+            "type": "pubkey"
+          },
+          {
+            "name": "deposited",
+            "type": "u64"
+          },
+          {
+            "name": "minted",
+            "type": "u64"
+          },
+          {
+            "name": "fee",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SplitsPaused",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "series",
+            "type": "pubkey"
+          },
+          {
+            "name": "paused",
+            "type": "bool"
+          }
+        ]
+      }
+    }
+  ]
+}

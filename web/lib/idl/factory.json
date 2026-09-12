@@ -1,0 +1,1143 @@
+{
+  "address": "CRBW3Et1ogjExdSnFty3gM4zyGoN7He5zfqkaieZqQkZ",
+  "metadata": {
+    "name": "factory",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Creates and registers canonical option series."
+  },
+  "instructions": [
+    {
+      "name": "approve_collateral",
+      "docs": [
+        "Allow series to escrow this collateral mint."
+      ],
+      "discriminator": [
+        193,
+        159,
+        219,
+        221,
+        83,
+        229,
+        203,
+        88
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "admin",
+          "signer": true,
+          "relations": [
+            "factory"
+          ]
+        },
+        {
+          "name": "factory",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  97,
+                  99,
+                  116,
+                  111,
+                  114,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "collateral_mint"
+        },
+        {
+          "name": "approval",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  112,
+                  112,
+                  114,
+                  111,
+                  118,
+                  101,
+                  100,
+                  45,
+                  99,
+                  111,
+                  108,
+                  108,
+                  97,
+                  116,
+                  101,
+                  114,
+                  97,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "collateral_mint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "approve_oracle",
+      "docs": [
+        "Allow series to settle against this feed config.",
+        "",
+        "The existence of the approval account *is* the approval, so revoking is",
+        "closing it. Approving a `SourceKind::Mock` feed on mainnet would let",
+        "the operator write the price a series settles against; that is what the",
+        "pre-deployment checklist in the README exists to catch."
+      ],
+      "discriminator": [
+        199,
+        50,
+        54,
+        147,
+        30,
+        156,
+        249,
+        116
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "admin",
+          "signer": true,
+          "relations": [
+            "factory"
+          ]
+        },
+        {
+          "name": "factory",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  97,
+                  99,
+                  116,
+                  111,
+                  114,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "feed_config"
+        },
+        {
+          "name": "approval",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  112,
+                  112,
+                  114,
+                  111,
+                  118,
+                  101,
+                  100,
+                  45,
+                  111,
+                  114,
+                  97,
+                  99,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "feed_config"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "create_series",
+      "docs": [
+        "Create a canonical series and register it.",
+        "",
+        "Validates policy, drives `series::create_series` through a CPI signed by",
+        "the factory PDA, and writes the registry record. The `series` program",
+        "re-validates everything it cares about independently; nothing here is",
+        "load-bearing for the safety of the vault, only for what gets listed."
+      ],
+      "discriminator": [
+        181,
+        9,
+        52,
+        120,
+        197,
+        221,
+        42,
+        142
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "admin",
+          "signer": true,
+          "relations": [
+            "factory"
+          ]
+        },
+        {
+          "name": "factory",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  97,
+                  99,
+                  116,
+                  111,
+                  114,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "series_admin"
+        },
+        {
+          "name": "oracle_approval",
+          "docs": [
+            "The allowlist entry for the feed. Its existence is the approval, and",
+            "its seeds tie it to `feed_config`, so no further check is needed."
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  112,
+                  112,
+                  114,
+                  111,
+                  118,
+                  101,
+                  100,
+                  45,
+                  111,
+                  114,
+                  97,
+                  99,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "feed_config"
+              }
+            ]
+          }
+        },
+        {
+          "name": "collateral_approval",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  112,
+                  112,
+                  114,
+                  111,
+                  118,
+                  101,
+                  100,
+                  45,
+                  99,
+                  111,
+                  108,
+                  108,
+                  97,
+                  116,
+                  101,
+                  114,
+                  97,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "collateral_mint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "feed_config"
+        },
+        {
+          "name": "collateral_mint"
+        },
+        {
+          "name": "series",
+          "docs": [
+            "`CreateSeries` constraints, which own this PDA."
+          ],
+          "writable": true
+        },
+        {
+          "name": "collateral_vault",
+          "writable": true
+        },
+        {
+          "name": "p_mint",
+          "writable": true
+        },
+        {
+          "name": "n_mint",
+          "writable": true
+        },
+        {
+          "name": "fee_recipient"
+        },
+        {
+          "name": "record",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  99,
+                  111,
+                  114,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "series"
+              }
+            ]
+          }
+        },
+        {
+          "name": "series_program",
+          "address": "AJPJRQQpgT461SaiBvZY4ixdS6S5R2QYQsod6Qdpm8p9"
+        },
+        {
+          "name": "collateral_token_program"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "CreateSeriesParams"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "initialize",
+      "discriminator": [
+        175,
+        175,
+        109,
+        31,
+        13,
+        152,
+        155,
+        237
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "admin",
+          "signer": true
+        },
+        {
+          "name": "factory",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  97,
+                  99,
+                  116,
+                  111,
+                  114,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "pause_creation",
+      "discriminator": [
+        112,
+        176,
+        102,
+        168,
+        34,
+        18,
+        236,
+        95
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "signer": true,
+          "relations": [
+            "factory"
+          ]
+        },
+        {
+          "name": "factory",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  97,
+                  99,
+                  116,
+                  111,
+                  114,
+                  121
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "revoke_collateral",
+      "discriminator": [
+        102,
+        218,
+        189,
+        142,
+        238,
+        147,
+        97,
+        152
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "signer": true,
+          "relations": [
+            "factory"
+          ]
+        },
+        {
+          "name": "factory",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  97,
+                  99,
+                  116,
+                  111,
+                  114,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "rent_recipient",
+          "writable": true
+        },
+        {
+          "name": "approval",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  112,
+                  112,
+                  114,
+                  111,
+                  118,
+                  101,
+                  100,
+                  45,
+                  99,
+                  111,
+                  108,
+                  108,
+                  97,
+                  116,
+                  101,
+                  114,
+                  97,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "approval.target",
+                "account": "Approval"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "revoke_oracle",
+      "discriminator": [
+        244,
+        253,
+        191,
+        174,
+        58,
+        179,
+        203,
+        48
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "signer": true,
+          "relations": [
+            "factory"
+          ]
+        },
+        {
+          "name": "factory",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  97,
+                  99,
+                  116,
+                  111,
+                  114,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "rent_recipient",
+          "writable": true
+        },
+        {
+          "name": "approval",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  112,
+                  112,
+                  114,
+                  111,
+                  118,
+                  101,
+                  100,
+                  45,
+                  111,
+                  114,
+                  97,
+                  99,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "approval.target",
+                "account": "Approval"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "set_admin",
+      "discriminator": [
+        251,
+        163,
+        0,
+        52,
+        91,
+        194,
+        187,
+        92
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "signer": true,
+          "relations": [
+            "factory"
+          ]
+        },
+        {
+          "name": "factory",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  97,
+                  99,
+                  116,
+                  111,
+                  114,
+                  121
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "new_admin",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "unpause_creation",
+      "discriminator": [
+        36,
+        195,
+        175,
+        219,
+        15,
+        149,
+        147,
+        202
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "signer": true,
+          "relations": [
+            "factory"
+          ]
+        },
+        {
+          "name": "factory",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  97,
+                  99,
+                  116,
+                  111,
+                  114,
+                  121
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    }
+  ],
+  "accounts": [
+    {
+      "name": "Approval",
+      "discriminator": [
+        233,
+        9,
+        153,
+        49,
+        11,
+        222,
+        59,
+        130
+      ]
+    },
+    {
+      "name": "FactoryState",
+      "discriminator": [
+        91,
+        157,
+        184,
+        99,
+        123,
+        112,
+        102,
+        7
+      ]
+    },
+    {
+      "name": "FeedConfig",
+      "discriminator": [
+        75,
+        97,
+        12,
+        15,
+        89,
+        221,
+        78,
+        71
+      ]
+    },
+    {
+      "name": "SeriesRecord",
+      "discriminator": [
+        108,
+        124,
+        7,
+        20,
+        121,
+        5,
+        39,
+        176
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "CollateralApproved",
+      "discriminator": [
+        60,
+        125,
+        99,
+        169,
+        203,
+        104,
+        234,
+        67
+      ]
+    },
+    {
+      "name": "CollateralRevoked",
+      "discriminator": [
+        60,
+        16,
+        213,
+        190,
+        23,
+        161,
+        154,
+        117
+      ]
+    },
+    {
+      "name": "OracleApproved",
+      "discriminator": [
+        217,
+        28,
+        133,
+        15,
+        170,
+        30,
+        218,
+        224
+      ]
+    },
+    {
+      "name": "OracleRevoked",
+      "discriminator": [
+        46,
+        163,
+        216,
+        49,
+        163,
+        153,
+        239,
+        118
+      ]
+    },
+    {
+      "name": "SeriesRegistered",
+      "discriminator": [
+        86,
+        144,
+        81,
+        8,
+        158,
+        119,
+        149,
+        174
+      ]
+    }
+  ],
+  "types": [
+    {
+      "name": "Approval",
+      "docs": [
+        "An allowlist entry. Existence is the approval; revoking closes the account."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "target",
+            "type": "pubkey"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "CollateralApproved",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "mint",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "CollateralRevoked",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "mint",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "CreateSeriesParams",
+      "docs": [
+        "Parameters for a new series.",
+        "",
+        "Grouped into one struct so the PDA seeds can reference `params.strike` and",
+        "`params.maturity_ts` without pinning the order of a long argument list."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "strike",
+            "type": "i128"
+          },
+          {
+            "name": "maturity_ts",
+            "type": "i64"
+          },
+          {
+            "name": "price_decimals",
+            "type": "u32"
+          },
+          {
+            "name": "settlement_delay_secs",
+            "type": "i64"
+          },
+          {
+            "name": "max_oracle_age_secs",
+            "type": "i64"
+          },
+          {
+            "name": "max_price_lag_secs",
+            "type": "i64"
+          },
+          {
+            "name": "min_split_amount",
+            "type": "u64"
+          },
+          {
+            "name": "fee_bps",
+            "type": "u16"
+          }
+        ]
+      }
+    },
+    {
+      "name": "FactoryState",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "paused",
+            "type": "bool"
+          },
+          {
+            "name": "series_count",
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "FeedConfig",
+      "docs": [
+        "Immutable-ish identity of a price feed. `feed_id` never changes; the",
+        "account it is read from can be rotated by the admin."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "feed_id",
+            "docs": [
+              "Pyth feed id for the pair. Every quote is checked against this, so a",
+              "series can never settle against the price of a different asset."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "source",
+            "type": "pubkey"
+          },
+          {
+            "name": "max_age_secs",
+            "docs": [
+              "Maximum accepted staleness of a quote relative to the cluster clock."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "min_verification_signatures",
+            "docs": [
+              "Minimum guardian signatures a partially-verified Pyth update must",
+              "carry. `VerificationLevel::Full` always clears it. A zero floor accepts",
+              "an update backed by no signatures at all, so mainnet configs must set",
+              "this."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "OracleApproved",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "feed_config",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "OracleRevoked",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "feed_config",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SeriesRecord",
+      "docs": [
+        "The registry entry that makes a series canonical."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "series",
+            "type": "pubkey"
+          },
+          {
+            "name": "collateral_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "feed_config",
+            "type": "pubkey"
+          },
+          {
+            "name": "strike",
+            "type": "i128"
+          },
+          {
+            "name": "maturity_ts",
+            "type": "i64"
+          },
+          {
+            "name": "price_decimals",
+            "type": "u32"
+          },
+          {
+            "name": "index",
+            "docs": [
+              "Creation order, for stable listing."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SeriesRegistered",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "series",
+            "type": "pubkey"
+          },
+          {
+            "name": "collateral_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "feed_config",
+            "type": "pubkey"
+          },
+          {
+            "name": "strike",
+            "type": "i128"
+          },
+          {
+            "name": "maturity_ts",
+            "type": "i64"
+          },
+          {
+            "name": "index",
+            "type": "u64"
+          }
+        ]
+      }
+    }
+  ]
+}
