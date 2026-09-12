@@ -1,0 +1,47 @@
+{
+  "at-250": {
+    "address": "wyWz9MFub8DRohDgeS2VFaXT77EGRQxCgRz3BZQsuD7",
+    "price": 25000000000,
+    "publishTime": 1787235625
+  },
+  "at-300": {
+    "address": "5L1pifLzp6N71UvLUuvXDqTQfQKrJDWQTQQnWHJSsW6M",
+    "price": 30000000000,
+    "publishTime": 1787235625
+  },
+  "at-600": {
+    "address": "5UwXgaBafMgP2NV8x2rKvWU67ehJzHpCoBbcHsb6w1VF",
+    "price": 60000000000,
+    "publishTime": 1787235625
+  },
+  "at-600-alt": {
+    "address": "81x6PaZzbDX1gHVCGnrpW9N6gDVqgAY5qmuk4yRo6bkC",
+    "price": 60000000000,
+    "publishTime": 1787235625
+  },
+  "at-600-past": {
+    "address": "EHogBYxtkS8XJu88EDfAyxzA4eF9QzyrKMdFE5rTER5f",
+    "price": 60000000000,
+    "publishTime": 1787235250
+  },
+  "at-1000": {
+    "address": "DEtP35KP4ioEaZt8hbg64ZjQdWm2JKVXAt7QcUoucdem",
+    "price": 100000000000,
+    "publishTime": 1787235625
+  },
+  "at-1200": {
+    "address": "BuiRxf9SfWEtejNurMoEafmMhJ6VVYCD2dHGXv3VTc8C",
+    "price": 120000000000,
+    "publishTime": 1787235625
+  },
+  "live": {
+    "address": "phwgUaLUntYPU8RCU6nL5vt8fnWd8AoqanYfdY3C3uE",
+    "price": 8640014454,
+    "publishTime": 1787235625
+  },
+  "stale": {
+    "address": "AkfB3WHbAXHrEuTtefxQrTkZAKMdcYCF83czHu62x1Kg",
+    "price": 60000000000,
+    "publishTime": 1787149150
+  }
+}

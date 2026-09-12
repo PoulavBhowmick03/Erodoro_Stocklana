@@ -1,0 +1,31 @@
+diff --git a/e-token/src/processor/undelegate_ephemeral_ata.rs b/e-token/src/processor/undelegate_ephemeral_ata.rs
+index 1616aba..5314d3a 100644
+--- a/e-token/src/processor/undelegate_ephemeral_ata.rs
++++ b/e-token/src/processor/undelegate_ephemeral_ata.rs
+@@ -2 +2 @@ use ephemeral_spl_api::{
+-    require, require_eq_keys, require_n_accounts,
++    require, require_eq_keys, require_n_accounts_with_optionals,
+@@ -13,0 +14 @@ fn commit_and_undelegate_accounts(
++    magic_fee_vault: Option<&AccountView>,
+@@ -20 +21 @@ fn commit_and_undelegate_accounts(
+-        None,
++        magic_fee_vault,
+@@ -34,0 +36,2 @@ fn commit_and_undelegate_accounts(
++///  5: [writable, optional] - PDA     : Magic fee vault. Required when the
++///                                      eATA owner is itself delegated.
+@@ -38,0 +42,2 @@ pub fn process_undelegate_ephemeral_ata(accounts: &[AccountView], _instruction_d
++    let (required, optional) = require_n_accounts_with_optionals!(accounts, 5);
++    require!(optional.len() <= 1, ProgramError::InvalidArgument);
+@@ -45 +50,2 @@ pub fn process_undelegate_ephemeral_ata(accounts: &[AccountView], _instruction_d
+-    ] = require_n_accounts!(accounts, 5);
++    ] = required;
++    let magic_fee_vault = optional.first();
+@@ -66 +72,7 @@ pub fn process_undelegate_ephemeral_ata(accounts: &[AccountView], _instruction_d
+-    commit_and_undelegate_accounts(payer, core::slice::from_ref(ata_info), magic_context, magic_program)
++    commit_and_undelegate_accounts(
++        payer,
++        core::slice::from_ref(ata_info),
++        magic_context,
++        magic_program,
++        magic_fee_vault,
++    )
