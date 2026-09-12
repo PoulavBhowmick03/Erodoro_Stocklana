@@ -1,0 +1,50 @@
+{
+  "sourceCommit": "d69224d",
+  "note": "Pinned v1.54 SBF fingerprints. Platform-tools emits different binaries on the supported darwin-arm64 and CI linux-x64 hosts, so each host is verified against its own observed output.",
+  "platforms": {
+    "darwin-arm64": {
+      "factory": {
+        "bytes": 222800,
+        "sha256": "6a06620087db63484c1631db8f552436bcaeda3e6c1b268c1f2787f9e300ae77"
+      },
+      "market": {
+        "bytes": 310320,
+        "sha256": "e161dc9404a2990b98a82399034b0a3ad2ded1f53c35b06d9b8cbacb909f643f"
+      },
+      "oracle_adapter": {
+        "bytes": 138416,
+        "sha256": "7bc6cd91bca3966f5a5b19ec0ef2c7b2ec240268970c519bc241afb9dcb63191"
+      },
+      "series": {
+        "bytes": 367104,
+        "sha256": "26bf6f99dd1d6b493b5992421c1f69f45b5fc1273158cddfc04c51bd80c0917e"
+      },
+      "test_transfer_hook": {
+        "bytes": 57608,
+        "sha256": "11a90277ae4b1d9efb3ca5d3ec59b06330ec833ee2c00e70e512f9b9c9707f06"
+      }
+    },
+    "linux-x64": {
+      "factory": {
+        "bytes": 221568,
+        "sha256": "833607659bfbcb84b8f34e5906a7a15a5a371dd30ad9b9ad7961250e08d516e2"
+      },
+      "market": {
+        "bytes": 309256,
+        "sha256": "8f589f78260531868bc8ada6d59fbe2ef3b2ce6000aebec882836bbb8b5ee4b0"
+      },
+      "oracle_adapter": {
+        "bytes": 138888,
+        "sha256": "2fa948cdb7335677ad616f781f21a7cece5f359d10a679ac2c0dd9f997950b2d"
+      },
+      "series": {
+        "bytes": 366416,
+        "sha256": "e14a374cf996e02b3026a6183c14134907a6e66111f78d8ee9d10fff2a2e2cf6"
+      },
+      "test_transfer_hook": {
+        "bytes": 57784,
+        "sha256": "84538fd8276d19c74428a77d7b1e3c519da5b9f8e6323c83506934e09e924d4a"
+      }
+    }
+  }
+}

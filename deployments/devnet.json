@@ -1,0 +1,38 @@
+{
+  "cluster": "devnet",
+  "genesisHash": "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG",
+  "ready": true,
+  "updatedAt": "2026-08-22T00:00:00Z",
+  "programs": {
+    "oracle_adapter": "FMByTd4JrYycj1V7hVKHqjHnLZ5D4rwyYYscSqYiuGfz",
+    "series": "AJPJRQQpgT461SaiBvZY4ixdS6S5R2QYQsod6Qdpm8p9",
+    "factory": "CRBW3Et1ogjExdSnFty3gM4zyGoN7He5zfqkaieZqQkZ",
+    "market": "FYAhsmE2JCxuAFhq2asH2wC4i7ZaUE7kwRbcgzM3AwgC",
+    "manifest": "HTBtzS8fV9Bw1pGRQZEZqYtu49jJLLUjU5msQWaUKfBE",
+    "ephemeral_spl_token": "SPLxh1LVZcwhZVunT2F11mHeGVcRrU4jxvuzY4gxGy7"
+  },
+  "quoteMint": "HF8CvJ8afuhvRDiwujtaxH6X863sJNrAtzhAty51sDAa",
+  "magicblock": {
+    "validator": "MAS1Dt9qreoRMQ14YQuhg8UTZMMzDdKhmkZMECCzk57",
+    "registeredBooks": 8,
+    "trading": "verified-live",
+    "settlementExit": "blocked-upstream: the public canonical ephemeral-SPL deployment does not yet accept the Magic fee-vault account required by the current public validator"
+  },
+  "factoryAdmin": "tmM8kECJyA5DtAqUwuwMk2Xuheqk5b18ckbCrhSUBSw",
+  "factoryAdminMigration": {
+    "from": "8jLo1GkfgViEf5ptfACdNP47xioREfFcg3Bz36uAEmAi",
+    "slot": 486358875,
+    "signature": "6D8i3K71PAY8NiZZVEyonq1C45b1ZMdmD4K3vFhBaHWGPebAKExutgkau7ShBUuQDTpnwmiu8KR98H6FRZSbjnG"
+  },
+  "upgradeAuthority": "9CQVNjVLwajpv8pnGsQTP82fBcRji4wnooDCpSTGDs2q",
+  "notDeployed": {
+    "test_transfer_hook": "Test-only. It exists to be armed inside the suites and has no reason to hold rent on a public cluster."
+  },
+  "closed": {
+    "mock_oracle": {
+      "wasAt": "E6s3XW87BdPpN1vcQePvhEARhw4A3QfqYh2ncDdTsDiQ",
+      "why": "Closed to reclaim 1.42 SOL of rent toward the market deployment while the faucet was capped. Test-only, and its paths are covered by the localnet suites. A closed program address cannot be reused, so redeploying needs a fresh keypair."
+    }
+  },
+  "notes": "The core Erodoro programs and the compatible Manifest fork are live on devnet. All eight P/N books for the four registered series are delegated to and verified on MagicBlock; the public trade test covers projected balances, late seat creation, matching and cancellation. Final Manifest session exit remains externally blocked until MagicBlock updates its canonical ephemeral-SPL deployment with the current fee-vault ABI, so it is deliberately not recorded as passing."
+}

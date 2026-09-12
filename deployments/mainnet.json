@@ -1,0 +1,40 @@
+{
+  "cluster": "mainnet-beta",
+  "genesisHash": "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d",
+  "status": "configuration-only",
+  "ready": false,
+  "programs": {
+    "oracle_adapter": null,
+    "series": null,
+    "factory": null,
+    "market": null,
+    "manifest": null,
+    "ephemeral_spl_token": null
+  },
+  "quoteMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+  "issuer": {
+    "id": "backed-xstocks",
+    "approvedCollateral": [
+      {
+        "symbol": "TSLAx",
+        "mint": "XsDoVfqeBukxuZHWhdvWHBhgEHjGNst4MLodqsJHzoB",
+        "status": "candidate-not-approved"
+      }
+    ]
+  },
+  "magicblock": {
+    "endpoint": null,
+    "validator": null,
+    "status": "blocked-until-production-deployment-and-exit-validation"
+  },
+  "releaseGates": [
+    "issuer approval",
+    "production oracle configuration",
+    "MagicBlock fee-vault exit deployment",
+    "permissionless maturity exit",
+    "external audit",
+    "multisig upgrade authorities",
+    "market maker commitment"
+  ],
+  "notes": "This file deliberately contains no invented deployment addresses. A Mainnet build may render issuer metadata, but runtime checks keep trading unavailable until the programs and MagicBlock endpoint are explicitly configured and verified."
+}
