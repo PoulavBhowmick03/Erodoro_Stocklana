@@ -1,0 +1,39 @@
+{
+  // The frontend remains a Next.js static export. A very small Worker runs
+  // first only for /rpc, where it injects the server-side Helius secret; every
+  // other request is served directly from web/out.
+  //
+  // Cloudflare Workers Builds settings that go with this:
+  //   Build command   pnpm build
+  //   Deploy command  npx wrangler deploy
+  //
+  // The build command matters. Without it Cloudflare installs the repo root's
+  // dependencies — which are the Anchor test harness, not the frontend — and
+  // then finds no static directory to deploy.
+  //
+  "name": "erodoro-protocol",
+  "compatibility_date": "2026-08-14",
+  "main": "./cloudflare/worker.mjs",
+  "assets": {
+    "binding": "ASSETS",
+    "directory": "./web/out",
+    "run_worker_first": ["/rpc", "/rpc/*", "/waitlist"],
+    // Serves /app from app.html, and falls back to the exported 404.
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page"
+  },
+  "d1_databases": [
+    {
+      "binding": "WAITLIST_DB",
+      "database_name": "erodoro-waitlist",
+      "database_id": "0ab1ed2c-f509-434b-ac6e-af970e6ea565",
+      "preview_database_id": "9ff27a04-a05b-479b-8bf4-b192de725e5f",
+      "migrations_dir": "cloudflare/migrations"
+    }
+  ],
+  // Kept in Cloudflare's encrypted Worker bindings; never expose this as a
+  // NEXT_PUBLIC value or commit it to the repository.
+  "secrets": {
+    "required": ["HELIUS_API_KEY"]
+  }
+}
