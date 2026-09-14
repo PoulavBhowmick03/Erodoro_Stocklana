@@ -448,11 +448,11 @@ describe("Manifest fork on a MagicBlock rollup", function () {
       maker,
     );
 
-    // Public MagicBlock currently projects the canonical ephemeral-SPL token
-    // and runs the complete trading path, but its canonical token program has
-    // not yet received the fee-vault exit ABI. Keep the public deployment test
-    // useful and explicit without pretending that externally blocked exit has
-    // passed. Local/full-stack CI continues through commit, exit and claims.
+    // The public deployment now accepts the fee-vault exit ABI (proven by
+    // behavior on devnet 2026-09-12: exit plus L1 claims pass against the
+    // canonical ephemeral-SPL deployment). Keep the public deployment test
+    // useful and explicit. Local/full-stack CI continues through commit, exit
+    // and claims.
     if (TRADE_ONLY) return;
 
     await sendToRollup(

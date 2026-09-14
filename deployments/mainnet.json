@@ -30,7 +30,7 @@
   "releaseGates": [
     "issuer approval",
     "production oracle configuration",
-    "MagicBlock fee-vault exit deployment",
+    "MagicBlock fee-vault exit deployment (exit proven on devnet 2026-09-12; mainnet needs its own deployment)",
     "permissionless maturity exit",
     "external audit",
     "multisig upgrade authorities",

@@ -130,7 +130,16 @@ transaction. A live test proves that a second claim fails.
 
 ## Recommended release gates
 
-1. Land or deploy the e-token optional fee-vault patch and pin its exact commit.
+1. ~~Land or deploy the e-token optional fee-vault patch and pin its exact commit.~~
+   **Satisfied 2026-09-12, differently than written:** the blockage was the
+   Manifest fork dropping the fee-vault account, not the e-token program. The
+   fork now forwards it on both undelegate CPIs (deployed devnet build sha256
+   `42bdbc45…`, slot 496844170), and the canonical e-token deployment accepts
+   the optional account, so compatibility is proven by behavior. Upstream took
+   over the e-token-side hardening as `magicblock-labs/ephemeral-spl-token`
+   PR #136 — do **not** apply `patches/ephemeral-spl-token-delegated-owner-fee-vault.patch`;
+   that shape is superseded. Evidence:
+   `/Users/rahul/work/stellar/erodoro-protocol/docs/evidence/manifest-feevault-deploy-and-session.txt`.
 2. Add the new Manifest custody instructions to formal verification or obtain
    an independent audit.
 3. Add a permissionless maturity cancel/exit design.

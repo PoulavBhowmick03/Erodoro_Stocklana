@@ -57,7 +57,8 @@ the next feature is accepted.
 
 - External audit covers series, oracle, Manifest custody additions and browser
   transaction construction.
-- The canonical ephemeral-SPL fee-vault exit path is deployed and pinned.
+- The canonical ephemeral-SPL fee-vault exit path is deployed and pinned
+  (proven on devnet 2026-09-12; mainnet still needs its own deployment).
 - A permissionless maturity cancel/exit path is available.
 - Program upgrade authorities are held by the reviewed multisig or finalized.
 - The issuer mint and corporate-action policy are approved.

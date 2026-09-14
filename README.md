@@ -123,8 +123,9 @@ prototype still has unresolved findings. Details and the threat model are in
 
 The canonical Manifest/ephemeral-SPL integration has an internal engineering review
 in [`docs/ephemeral-spl-token-audit.md`](docs/ephemeral-spl-token-audit.md). The
-public commit-and-undelegate path remains blocked until the canonical ephemeral-SPL
-deployment accepts the optional MagicBlock fee-vault account.
+public commit-and-undelegate path is verified-live on devnet as of 2026-09-12
+(fee-vault-forwarding fork deployed, public ER re-cloned, exit plus L1 claims
+proven); seats must be claimed on L1 before delegation.
 
 **There is no external audit yet. Nothing in the devnet demo has real value.**
 

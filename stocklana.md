@@ -30,12 +30,20 @@ substitute for a paid audit.
 
 Two corrections surfaced during research that change what's achievable this
 week (details in Workstream A):
-1. The MagicBlock fee-vault fix is **not** purely an upstream blocker — the
+1. ~~The MagicBlock fee-vault fix is **not** purely an upstream blocker — the
    31-line patch already exists at
    `patches/ephemeral-spl-token-delegated-owner-fee-vault.patch` and can be
-   built and deployed under Erodoro's own program ID this week. What stays
-   genuinely outside this team's control is getting the *canonical public*
-   Manifest/e-token deployment patched.
+   built and deployed under Erodoro's own program ID this week.~~ **Resolved
+   2026-09-12, differently:** the blockage was the Manifest fork dropping the
+   fee-vault account, not the e-token program. The fork now forwards it on
+   both undelegate CPIs (devnet build sha256 `42bdbc45…`, slot 496844170),
+   the public ER re-cloned it, and exit plus L1 claims pass. Do **not** apply
+   `patches/ephemeral-spl-token-delegated-owner-fee-vault.patch` — upstream
+   took it over as `magicblock-labs/ephemeral-spl-token` PR #136 (hardened)
+   and that shape is superseded. Evidence:
+   `/Users/rahul/work/stellar/erodoro-protocol/docs/evidence/manifest-feevault-deploy-and-session.txt`.
+   What stays genuinely outside this team's control is getting the *canonical
+   public* Manifest/e-token deployment patched.
 2. Three of the five Pinocchio variants (`oracle-adapter-pinocchio`,
    `factory-pinocchio`, `market-pinocchio`) are **already the deployed devnet
    binaries**, not a comparison exercise — confirmed by `CHANGELOG.md`
@@ -82,9 +90,10 @@ blocks early.
   mid-session), starts the live-devnet transaction matrix. C: terminology/
   6-state tx lifecycle verification, removes dead custody-exit code. D: drafts
   incident-response runbook v1.
-- **Day 3:** A: builds/deploys the patched e-token fork under Erodoro's own
-  program ID on devnet (§A.5). B: runs `tests/manifest-fork-rollup.ts` against
-  that deployment — highest-value proof point of the week if it lands. C:
+- **Day 3:** ~~A: builds/deploys the patched e-token fork under Erodoro's own
+  program ID on devnet (§A.5).~~ A.5 landed 2026-09-12 in the sibling repo
+  (fee-vault forwarding in the Manifest fork, devnet-proven). B: runs
+  `tests/manifest-fork-rollup.ts` against that deployment — highest-value proof point of the week if it lands. C:
   scopes market-data gaps, ships what's feasible. D: finalizes the `series` +
   Token-2022 cross-review findings.
 - **Day 4:** A: finishes caps/policy workflow, closes the Pinocchio decision
@@ -140,13 +149,20 @@ mainnet ship decision per program, in writing.
    schedule check) inside `programs/factory`'s approve instructions. Do **not**
    attempt to move Backed's TSLAx mint out of `candidate-not-approved` —
    that's issuer/legal review, explicitly out of scope.
-5. **Apply, build, deploy, prove the fee-vault patch** — obtain the pinned
+5. ~~**Apply, build, deploy, prove the fee-vault patch** — obtain the pinned
    `ephemeral-spl-token` and Manifest core commits named in
    `docs/manifest-magicblock-spike.md`, apply the existing patch, deploy under
    Erodoro's own program ID on devnet (the "separately maintained GPL fork"
    the spike doc already recommends). Hand the program ID to Workstream B. If
    source access to those repos doesn't exist, say so explicitly and stop —
-   don't simulate success.
+   don't simulate success.~~ **Done 2026-09-12 in the sibling repo
+   (`erodoro-protocol` commit `48d01d6`, merged as `73fd577`): fee-vault
+   forwarding landed in the Manifest fork, deployed to devnet, ER re-cloned,
+   pre-existing session exit plus a fresh full lifecycle both pass. Remaining
+   for this workspace: mirror the deployment record (done in
+   `deployments/devnet.json`) and keep the seat-regression caveat visible
+   (seats must be claimed on L1 before delegation). Do not re-apply the old
+   patch shape.**
 6. **Permissionless maturity cancel/exit** — confirm `programs/market`'s own
    fallback CLOB is already permissionless on this axis (`cancel_order` allows
    any trader to cancel their own resting order any time; `undelegate_book`/
@@ -194,7 +210,7 @@ devnet-oracle,devnet-market}.ts`, `common/src/math.rs`,
    local MagicBlock stack, run `pnpm rollup` (`tests/rollup-session.ts`),
    capture real latency numbers against `docs/magicblock.md`'s recorded ones.
 2. **Run the Manifest-fork lifecycle** against Workstream A's fresh deployment
-   (§A.5) if it lands — full deposit→delegate→match→cancel→commit→undelegate→
+   (§A.5, landed 2026-09-12 — dependency satisfied) — full deposit→delegate→match→cancel→commit→undelegate→
    withdraw with exact balance conservation. If A.5 didn't land a deployment,
    run `tests/manifest-ephemeral.ts` instead and record exactly why the fork
    test couldn't run.

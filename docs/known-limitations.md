@@ -26,11 +26,13 @@ keeps these gaps visible instead of filling them with simulated activity.
 
 - Order placement, filling, and cancellation are intentionally routed only to
   MagicBlock. There is no silent Solana fallback for mutations.
-- Public commit-and-undelegate is waiting for the canonical ephemeral-SPL Token
-  deployment to accept the validator fee-vault account required when an
-  ephemeral token account is owned by a delegated market PDA. Trading can be
-  exercised, but the public exit lifecycle is not complete until that upstream
-  deployment is upgraded or custody is redesigned.
+- Public commit-and-undelegate is verified-live on devnet as of 2026-09-12:
+  the fee-vault-forwarding Manifest fork build was deployed, the public ER
+  re-cloned it, and a pre-existing session plus a fresh full lifecycle both
+  exited with exact L1 conservation. Two caveats travel with that result:
+  seats must be claimed on L1 *before* delegation (post-activation claims
+  regressed out of the deployed build), and active-session seat exhaustion
+  plus cross-validator markets remain open.
 - Empty books are real empty books. The interface does not seed fake orders,
   spreads, fills, premium, or volume.
 
