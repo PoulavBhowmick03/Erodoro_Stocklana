@@ -20,3 +20,17 @@ pub const ANCHOR_ERROR_BASE: u32 = 6000;
 pub fn err(e: OptionsError) -> ProgramError {
     ProgramError::Custom(ANCHOR_ERROR_BASE + e as u32)
 }
+
+/// Convert a `common::OptionsError` result into a program result at module
+/// boundaries. The orphan rule forbids a blanket `From`, so this trait carries
+/// the one-line mapping instead of repeating `.map_err(err)` at every site.
+pub trait OrProgramError<T> {
+    fn or_program_error(self) -> Result<T, ProgramError>;
+}
+
+impl<T> OrProgramError<T> for Result<T, OptionsError> {
+    #[inline(always)]
+    fn or_program_error(self) -> Result<T, ProgramError> {
+        self.map_err(err)
+    }
+}

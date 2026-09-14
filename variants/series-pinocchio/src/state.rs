@@ -269,8 +269,7 @@ pub struct Settlement {
 }
 
 impl Settlement {
-    pub fn load(data: &[u8]) -> Result<Self, OptionsError> {
-        let body = strip(data, &SETTLEMENT_DISC, SETTLEMENT_LEN)?;
+    pub fn load(data: &[u8]) -> Result<Self, OptionsError> {        let body = strip(data, &SETTLEMENT_DISC, SETTLEMENT_LEN)?;
         let mut c = Cursor::new(body);
         Ok(Self {
             series: c.key()?,
@@ -325,5 +324,12 @@ impl Settlement {
         w.put(&[self.supply_mismatch as u8])?;
         w.put(&[self.bump])?;
         Ok(())
+    }
+
+    /// Quoted claim still outstanding across both sides — the denominator of
+    /// the shortfall haircut.
+    pub fn outstanding(&self) -> u64 {
+        (self.p_pool.saturating_sub(self.p_redeemed))
+            .saturating_add(self.n_pool.saturating_sub(self.n_redeemed))
     }
 }

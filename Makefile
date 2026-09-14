@@ -87,6 +87,7 @@ endef
 PINOCCHIO_PORT ?= 8999
 PINOCCHIO_FACTORY_PORT ?= 8998
 PINOCCHIO_MARKET_PORT ?= 8997
+PINOCCHIO_SERIES_PORT ?= 8996
 
 # The RPC port was moved; gossip and the faucet were not, so all three tiers
 # were still asking for the defaults. Anchor.toml records what that costs -- the
@@ -97,9 +98,11 @@ PINOCCHIO_MARKET_PORT ?= 8997
 PINOCCHIO_GOSSIP ?= 8011
 PINOCCHIO_FACTORY_GOSSIP ?= 8012
 PINOCCHIO_MARKET_GOSSIP ?= 8013
+PINOCCHIO_SERIES_GOSSIP ?= 8014
 PINOCCHIO_FAUCET ?= 9901
 PINOCCHIO_FACTORY_FAUCET ?= 9902
 PINOCCHIO_MARKET_FAUCET ?= 9903
+PINOCCHIO_SERIES_FAUCET ?= 9904
 BIND ?= 127.0.0.1
 
 # A program's address is fixed by `declare_id!`, not by the keypair sitting in
@@ -115,6 +118,7 @@ BIND ?= 127.0.0.1
 ORACLE_ID ?= FMByTd4JrYycj1V7hVKHqjHnLZ5D4rwyYYscSqYiuGfz
 FACTORY_ID ?= CRBW3Et1ogjExdSnFty3gM4zyGoN7He5zfqkaieZqQkZ
 MARKET_ID ?= FYAhsmE2JCxuAFhq2asH2wC4i7ZaUE7kwRbcgzM3AwgC
+SERIES_ID ?= AJPJRQQpgT461SaiBvZY4ixdS6S5R2QYQsod6Qdpm8p9
 
 PROGRAMS := oracle-adapter series factory market
 
@@ -270,6 +274,36 @@ devnet: ## Oracle-layer tests against the programs deployed to devnet
 devnet-market: ## Order-book tests against the market program on devnet
 	ANCHOR_PROVIDER_URL=$(DEVNET_URL) ANCHOR_WALLET=$(WALLET) pnpm devnet:market
 
+pinocchio-series: SHELL := /bin/bash
+pinocchio-series: ## Execute the Pinocchio series build end to end on a validator
+	@# The full lifecycle through the Anchor TS client, unchanged: series
+	@# creation with its ATA and mints, split, merge, pause without trapping
+	@# collateral, settlement against a fresh Pyth-layout quote, pro-rata
+	@# redemption on both sides, dust sweep, and admin renouncement. The
+	@# transfer-hook and multisig branches cannot execute on a plain validator
+	@# with no hook program; their wire bytes are proven equal to SPL's in
+	@# `variants/series-pinocchio/tests/transfer_wire.rs`.
+	@rm -rf /tmp/pinocchio-series-ledger
+	@node scripts/series-pyth-fixture.mjs /tmp/series-pyth-fixture.json
+	@set -e -o pipefail; \
+	 solana-test-validator --reset --quiet \
+	   --ledger /tmp/pinocchio-series-ledger \
+	   --rpc-port $(PINOCCHIO_SERIES_PORT) \
+	   --gossip-port $(PINOCCHIO_SERIES_GOSSIP) \
+	   --faucet-port $(PINOCCHIO_SERIES_FAUCET) \
+	   --bind-address $(BIND) \
+	   --bpf-program $(SERIES_ID) \
+	     variants/series-pinocchio/target/deploy/series_pinocchio.so \
+	   --bpf-program $(ORACLE_ID) \
+	     target/deploy/oracle_adapter.so \
+	   --account 5UwXgaBafMgP2NV8x2rKvWU67ehJzHpCoBbcHsb6w1VF /tmp/series-pyth-fixture.json \
+	   > /tmp/pinocchio-series-validator.log 2>&1 & vpid=$$!; \
+	 trap 'kill $$vpid 2>/dev/null || true' EXIT; \
+	 $(call await_program,$(PINOCCHIO_SERIES_PORT),$(SERIES_ID),/tmp/pinocchio-series-validator.log); \
+	 ANCHOR_PROVIDER_URL=http://127.0.0.1:$(PINOCCHIO_SERIES_PORT) ANCHOR_WALLET=$(WALLET) \
+	   pnpm pinocchio:series 2>&1 | tee /tmp/pinocchio-series.log; \
+	 $(call assert_ran,/tmp/pinocchio-series.log,pinocchio-series)
+
 ## §15 executed rather than remembered. Reads the live mint's five extensions
 ## and every feed config, and exits non-zero on anything unsafe.
 ##   make preflight MINT=<pubkey> [MATURITY=<ts>] [FEEDS="--feed <pk> --feed <pk>"]
@@ -287,13 +321,13 @@ build: ## Build all programs to SBF
 	$(SBF_ENV) anchor build --no-idl -- --tools-version $(TOOLS_VERSION) --features no-idl
 	@ls -la target/deploy/*.so
 
-## The three Pinocchio ports are what gets deployed for `oracle_adapter`,
-## `factory` and `market`; `series` stays on the Anchor build above. They are
+## The four Pinocchio ports are what gets deployed for `oracle_adapter`,
+## `factory`, `market` and `series`. They are
 ## independent workspaces, so `anchor build` does not reach them, and they were
 ## previously built by hand from `variants/COMPARISON.md`. A hand-built binary
 ## loses $(SIZE_RUSTFLAGS), and 0.1018 SOL with it.
 variants: ## Build the Pinocchio deploy artifacts
-	@for v in oracle-adapter factory market; do \
+	@for v in oracle-adapter factory market series; do \
 	  echo "  building $$v-pinocchio" ; \
 	  ( cd variants/$$v-pinocchio && $(SBF_ENV) cargo build-sbf --tools-version $(TOOLS_VERSION) ) || exit 1 ; \
 	done

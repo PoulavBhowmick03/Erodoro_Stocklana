@@ -27,6 +27,7 @@
     "pinocchio:oracle": "ts-mocha -p ./tsconfig.json -t 600000 tests/pinocchio-oracle.ts",
     "pinocchio:factory": "ts-mocha -p ./tsconfig.json -t 600000 tests/pinocchio-factory.ts",
     "pinocchio:market": "ts-mocha -p ./tsconfig.json -t 600000 tests/pinocchio-market.ts",
+    "pinocchio:series": "ts-mocha -p ./tsconfig.json -t 600000 tests/series-lifecycle.ts",
     "monitor": "node scripts/monitor.ts",
     "monitor:self-test": "node scripts/monitor.ts --self-test",
     "check:program-artifacts": "node scripts/check-program-artifacts.mjs"

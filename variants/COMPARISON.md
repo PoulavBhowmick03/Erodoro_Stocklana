@@ -268,6 +268,16 @@ same trick the other two ports use for discriminators and layouts.
 
 ## `series`: what is left, and why it is not the same job
 
+> **Update 2026-09-14: ported.** `variants/series-pinocchio` is now a complete
+> fourth port — 126,128 B, 0.8791 SOL, down from 367,104 B / 2.5562 SOL
+> (−65.9% on the program, −62.5% on the four-program deploy). The section
+> below records why it was believed impossible; the port answers each point:
+> the transfer-hook resolution is replicated byte-for-byte against SPL
+> (`tests/transfer_wire.rs`, 7 tests), the money math is linked not rewritten,
+> and the full lifecycle executes on a validator through the unchanged Anchor
+> client (`make pinocchio-series`, 6 tests). `series` holds collateral, so the
+> port stays behind its differential suites until review says otherwise.
+
 `series` is 2.7630 SOL of the 3.8190 remaining — 72%. It is also the only
 program that holds collateral, so it is the one where a missed account check
 costs someone their money rather than their transaction.

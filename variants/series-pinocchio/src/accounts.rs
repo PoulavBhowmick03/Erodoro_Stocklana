@@ -185,6 +185,22 @@ pub fn token_account_is(
     Ok(())
 }
 
+/// A token account of either program with enough data to read, without any
+/// mint or authority binding. This is what Anchor's bare `InterfaceAccount`
+/// checks: owner plus length. Mint and authority bindings, where Anchor has
+/// them, are separate calls so each check stays exactly as strict as the
+/// attribute it replaces — no stricter.
+pub fn token_account_program(account: &AccountView) -> Result<(), ProgramError> {
+    let owner = account.owner().as_array();
+    if owner != &SPL_TOKEN_ID && owner != &SPL_TOKEN_2022_ID {
+        return Err(ProgramError::IllegalOwner);
+    }
+    if account.try_borrow()?.len() < TOKEN_ACCOUNT_LEN {
+        return Err(err(OptionsError::InvalidParams));
+    }
+    Ok(())
+}
+
 /// `InterfaceAccount<'info, Mint>` — owned by a token program and long enough.
 pub fn mint(account: &AccountView) -> Result<(), ProgramError> {
     let owner = account.owner().as_array();

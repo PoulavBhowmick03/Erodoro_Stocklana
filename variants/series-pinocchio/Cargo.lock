@@ -1582,14 +1582,28 @@ name = "series-pinocchio"
 version = "0.1.0"
 dependencies = [
  "anchor-lang",
+ "base64 0.21.7",
  "common",
+ "oracle-adapter",
  "pinocchio 0.11.2",
  "pinocchio-pubkey",
  "pinocchio-system",
  "proptest",
+ "serde_json",
  "series",
  "sha2 0.11.0",
+ "solana-account-info",
  "solana-address",
+ "solana-instruction",
+ "solana-program-error 3.0.1",
+ "solana-program-pack",
+ "solana-pubkey",
+ "spl-associated-token-account",
+ "spl-associated-token-account-client",
+ "spl-tlv-account-resolution 0.10.0",
+ "spl-token 7.0.0",
+ "spl-token-2022 8.0.1",
+ "spl-transfer-hook-interface 0.10.0",
 ]
 
 [[package]]
