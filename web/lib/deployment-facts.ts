@@ -30,7 +30,7 @@ export const DEPLOYMENTS: Record<string, DeploymentFacts> = {
   "devnet": {
     "cluster": "devnet",
     "ready": true,
-    "updatedAt": "2026-08-22T00:00:00Z",
+    "updatedAt": "2026-09-14T00:00:00Z",
     "genesisHash": "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG",
     "quoteMint": "HF8CvJ8afuhvRDiwujtaxH6X863sJNrAtzhAty51sDAa",
     "programs": [
@@ -68,14 +68,14 @@ export const DEPLOYMENTS: Record<string, DeploymentFacts> = {
         "key": "ephemeral_spl_token",
         "label": "Ephemeral SPL",
         "purpose": "Token custody inside a live session",
-        "address": "SPLxh1LVZcwhZVunT2F11mHeGVcRrU4jxvuzY4gxGy7"
+        "address": "SPLxh1LVZzEkX99H6rqYizhytLWPZVV296zyYDPagv2"
       }
     ],
     "magicblock": {
       "validator": "MAS1Dt9qreoRMQ14YQuhg8UTZMMzDdKhmkZMECCzk57",
-      "registeredBooks": 8,
+      "registeredBooks": 10,
       "trading": "verified-live",
-      "settlementExit": "blocked-upstream: the public canonical ephemeral-SPL deployment does not yet accept the Magic fee-vault account required by the current public validator"
+      "settlementExit": "verified-live: the Manifest fork at this program ID was upgraded to the fee-vault-forwarding build (sha256 42bdbc45..., slot 496844170), the public MagicBlock ER re-cloned it, and the exit plus L1 claims pass against the canonical ephemeral-SPL deployment"
     }
   },
   "mainnet": {
