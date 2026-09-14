@@ -24,6 +24,10 @@ between the build target and RPC blocks reads and every mutation. Mainnet has no
 implicit RPC or MagicBlock endpoint, and its prebuild fails when production
 addresses are absent.
 
+The retained custom `market` program is local/devnet lifecycle tooling and is
+not part of the mainnet deploy set or its rent budget. Mainnet trading runs on
+the Manifest fork.
+
 ## Issuer boundary
 
 Issuer support is an adapter plus an on-chain approval, not a fork of the Rust

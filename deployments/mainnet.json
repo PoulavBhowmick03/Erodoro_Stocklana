@@ -11,6 +11,9 @@
     "manifest": null,
     "ephemeral_spl_token": null
   },
+  "notDeployed": {
+    "market": "Retained custom-market prototype for local/devnet lifecycle tooling. Mainnet trading runs on the Manifest fork, so this program is not part of the mainnet deploy set or its rent budget."
+  },
   "quoteMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
   "issuer": {
     "id": "backed-xstocks",
