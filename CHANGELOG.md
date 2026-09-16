@@ -42,6 +42,39 @@ high per program: `(bytes + 173) * 6960` is exact, and it now checks against a
 live account rather than against arithmetic — the deployed `market` holds
 2.53703832 SOL at 364,344 bytes, which is that formula to the lamport.
 
+### LTO on the Pinocchio deploy artifacts
+
+Link-time optimisation had never actually run on any of the four variants. Every
+one declared `crate-type = ["cdylib", "lib"]` so the `tests/` suite had an rlib
+to link, and cargo refuses LTO for a unit whose crate types are not all
+linkable — it silently dropped the profile's `lto = "fat"`. `cargo build-sbf -v`
+showed `-C opt-level=z -C codegen-units=1 -C overflow-checks=on` and no `-C lto`.
+
+Dropping to `crate-type = ["cdylib"]` lets it run. The suites keep executing:
+`autotests = false` plus a `#[cfg(test)]` `#[path = "../tests/…"]` include block
+in each `src/lib.rs`, with `extern crate self as <crate>` keeping the existing
+`<crate>::` paths in those files unchanged.
+
+| program | before | after | saved |
+| --- | ---: | ---: | ---: |
+| oracle_adapter | 25,960 B / 0.1819 | 19,688 B / 0.1382 | 0.0437 |
+| factory | 36,592 B / 0.2559 | 28,592 B / 0.2002 | 0.0557 |
+| series | 126,128 B / 0.8791 | 114,896 B / 0.8009 | 0.0782 |
+| market | 73,528 B / 0.5130 | 69,768 B / 0.4868 | 0.0262 |
+| | **1.8298** | **1.6261** | **0.2037** |
+
+The mainnet set — everything but `market` — goes **1.3168 → 1.1393 SOL, −13.5%**,
+with no program source change.
+
+One flag could not come along. `-Zlocation-detail=none` combined with LTO
+miscompiles: the `series` lifecycle fails four assertions on a validator
+(`OraclePriceStale` on settle against a fresh print, `IllegalOwner` on redeem)
+where the identical source without it passes 6/6. The variants therefore use
+`PINOCCHIO_RUSTFLAGS = -Zfmt-debug=none`, which is size-neutral under LTO, and
+keep `-Zlocation-detail=none` only for the Anchor builds, whose `cdylib`+`lib`
+crate type keeps their LTO off and their pinned hashes untouched. Recorded in
+`variants/COMPARISON.md`.
+
 ### Deploy cost
 
 - **Enabled the `no-idl` cargo feature** (0.766 SOL, no rewrite). Every program

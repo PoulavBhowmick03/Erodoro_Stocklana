@@ -483,6 +483,76 @@ missed flags. Checked by deleting
 `variants/oracle-adapter-pinocchio/target/sbpf-solana-solana` and rebuilding
 through the target: 25,960 B, not 28,904.
 
+## LTO was never on (2026-09-16): 1.3168 → 1.1393 SOL on the mainnet set
+
+The section above called the byte levers exhausted. That was wrong, because the
+`lto = "fat"` sitting in all four variant manifests was not doing anything.
+
+Cargo only passes `-C lto` to a unit whose crate types can all be linked with
+it. Every variant declared `crate-type = ["cdylib", "lib"]` — the `lib` is there
+so the `tests/` suite has something to link — and an rlib cannot be LTO'd, so
+cargo silently dropped the profile's `lto` for the cdylib too. Every Pinocchio
+binary in this file was built without link-time optimisation. Confirmed by
+reading the rustc line out of `cargo build-sbf -v`: it carries `-C opt-level=z
+-C codegen-units=1 -C overflow-checks=on` and no `-C lto`.
+
+Fix: `crate-type = ["cdylib"]` alone, so there is nothing for cargo to refuse.
+The suites keep running — `autotests = false` in `[package]` plus a `#[cfg(test)]`
+`#[path = "../tests/…"]` include block in each `src/lib.rs`, with
+`extern crate self as <crate>` so every existing `<crate>::` path in those files
+resolves unchanged. Same files, same tests, same counts (series 67, oracle 45,
+factory 24, market 22).
+
+| program | before | after | saved |
+| --- | ---: | ---: | ---: |
+| oracle_adapter | 25,960 B / 0.1819 | 19,688 B / 0.1382 | 0.0437 |
+| factory | 36,592 B / 0.2559 | 28,592 B / 0.2002 | 0.0557 |
+| series | 126,128 B / 0.8791 | 114,896 B / 0.8009 | 0.0782 |
+| market | 73,528 B / 0.5130 | 69,768 B / 0.4868 | 0.0262 |
+| | **1.8298** | **1.6261** | **0.2037** |
+
+The mainnet set — everything but `market`, which mainnet does not deploy — goes
+**1.3168 → 1.1393 SOL, −13.5%**, for a crate-type change and no program source
+change. The `series` figure in the 2026-09-14 update above (126,128 B / 0.8791)
+predates this and is superseded by 114,896 B / 0.8009.
+
+### `-Zlocation-detail=none` miscompiles with LTO
+
+Enabling LTO exposed a second thing, and it is why the variants do not use
+`SIZE_RUSTFLAGS`.
+
+`-Zlocation-detail=none` **together with** `lto = "fat"` produces a binary that
+is 6,880 bytes smaller on `series` (108,016 B) and wrong. `make
+pinocchio-series` against it fails four lifecycle assertions: `settle` returns
+`OraclePriceStale` (6015) against a fresh print and `redeem` returns
+`IllegalOwner`. The identical source without the flag passes 6/6. Same bytes,
+same accounts, different behaviour — a miscompile, not an error-code drift.
+
+So the variants keep `-Zfmt-debug=none` and drop `-Zlocation-detail=none`. The
+former is size-neutral once LTO runs (114,896 B with it, 114,896 without). The
+Anchor builds are still `cdylib`+`lib`, their LTO stays off, and they keep both
+flags and their pinned hashes. `PINOCCHIO_RUSTFLAGS` in the Makefile is the
+split; `SIZE_RUSTFLAGS` still governs `make build`.
+
+### What was and was not re-verified
+
+- Host suites: all four pass, same counts.
+- `make pinocchio-series` 6/6 and `make pinocchio-market` 8/8 run against the
+  LTO artifacts.
+- `make pinocchio-oracle` and `make pinocchio-factory` could **not** be re-run
+  here: both suites confirm a `requestAirdrop` with
+  `confirmTransaction(signature)` and no blockhash, which needs a websocket
+  `signatureSubscribe`, and this environment's `solana-test-validator` answers
+  every WS upgrade with `403` (verified with `curl` and `web3.js` directly,
+  independent of any binary). `series` and `market` do not use that path, which
+  is why they ran. The oracle and factory programs are unchanged in shape and
+  their host conformance suites pass; only their on-validator run is blocked.
+- The CU cost of `opt-level = "z"` was measured pre-LTO (heaviest `series`
+  instruction 122,080 CU, 39% headroom). LTO moves codegen and that number has
+  not been re-taken.
+
+---
+
 ## Measured and rejected: `no-log-ix-name`
 
 Declared by every program and never enabled, like `no-idl` was. Enabling it
