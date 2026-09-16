@@ -14,10 +14,13 @@
 # the same way, because one was written by reading the other. Linking makes the
 # arithmetic identical by construction.
 #
-# The cost is that `common`'s error enum is an Anchor `#[error_code]`, so
-# `anchor-lang` comes along for it -- roughly 10 KB, about 0.07 SOL. That is the
-# right trade on a program that holds collateral, and it is the only place any
-# of these ports takes an Anchor dependency on purpose.
+# The fear was that `common`'s error enum is an Anchor `#[error_code]`, so
+# `anchor-lang` would come along and cost ~10 KB / 0.07 SOL. That was measured
+# and is false: taking `common` with `default-features = false` produced a
+# byte-identical binary (126,128 B both ways), because nothing in this crate
+# calls into the code `#[error_code]` generates and both LTO and the linker drop
+# it. The dependency stays on the default feature because the enum it brings is
+# the same one the conformance suite compares against Anchor's own conversion.
 [workspace]
 
 [package]
@@ -25,10 +28,23 @@ name = "series-pinocchio"
 version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0"
+# The `tests/` suite is compiled into the crate (see `src/lib.rs`), because the
+# deploy artifact is `cdylib`-only and cargo builds no rlib for it to link.
+autotests = false
 
 [lib]
 # A real entrypoint now: this builds the deployable program.
-crate-type = ["cdylib", "lib"]
+#
+# `cdylib` **alone**. Cargo only enables `lto` for a unit whose crate types can
+# all be linked with it, and an `lib`/rlib cannot, so the previous
+# `["cdylib", "lib"]` silently turned `lto = "fat"` below into a no-op: the
+# `-C lto=fat` never reached rustc. Dropping the rlib lets LTO actually run,
+# which is worth 18,112 bytes (0.126 SOL) on this program alone.
+#
+# The cost is that cargo no longer builds an rlib for the `tests/` suite to link
+# against. `autotests = false` in `[package]` plus the `#[path]` include block
+# in `src/lib.rs` compiles that suite into the crate instead.
+crate-type = ["cdylib"]
 
 [features]
 no-entrypoint = []

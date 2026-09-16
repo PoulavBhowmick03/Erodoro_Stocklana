@@ -43,6 +43,42 @@ pinocchio::program_entrypoint!(program::process_instruction);
 // NOTE: no `no_allocator!` / `nostd_panic_handler!` here, unlike the three
 // sibling ports. This crate links `common`, whose Anchor error enum pulls
 // `anchor-lang` and `solana-program`, which supply their own global allocator
-// and panic handler; declaring ours is a `duplicate lang item` error. That
-// runtime is the ~10 KB the port pays for linking the math instead of
-// reimplementing it.
+// and panic handler; declaring ours is a `duplicate lang item` error. The
+// runtime costs nothing measurable -- taking `common` without `anchor` produced
+// a byte-identical binary -- but the lang items it defines are not ours to
+// redeclare, so the macros stay out.
+
+// --- The test suite -------------------------------------------------------
+//
+// `tests/` is compiled into this crate rather than as separate integration
+// crates. Cargo only enables `lto` for a unit whose crate types can all be
+// linked with it, and an rlib cannot, so `crate-type = ["cdylib", "lib"]` made
+// `lto = "fat"` a silent no-op. The artifact is `cdylib`-only now, which means
+// cargo builds no rlib for the suite to link against, so the suite is included
+// here with `autotests = false` in the manifest keeping cargo from also trying
+// to build it as six integration-test binaries.
+//
+// `extern crate self as series_pinocchio` keeps every existing
+// `series_pinocchio::` path in those files resolving unchanged. The files stay
+// where they are; only how they are compiled changed.
+#[cfg(test)]
+extern crate self as series_pinocchio;
+
+#[cfg(test)]
+#[path = "../tests/conformance.rs"]
+mod conformance;
+#[cfg(test)]
+#[path = "../tests/events_wire.rs"]
+mod events_wire;
+#[cfg(test)]
+#[path = "../tests/framework_wire.rs"]
+mod framework_wire;
+#[cfg(test)]
+#[path = "../tests/oracle_wire.rs"]
+mod oracle_wire;
+#[cfg(test)]
+#[path = "../tests/token_wire.rs"]
+mod token_wire;
+#[cfg(test)]
+#[path = "../tests/transfer_wire.rs"]
+mod transfer_wire;

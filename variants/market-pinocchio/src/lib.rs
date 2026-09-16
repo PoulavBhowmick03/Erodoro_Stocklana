@@ -63,3 +63,25 @@ pub mod ix {
     /// Injected by `#[ephemeral]`; the rollup calls this back on exit.
     pub const PROCESS_UNDELEGATION: [u8; 8] = [196, 28, 41, 206, 48, 37, 51, 167];
 }
+
+// --- The test suite -------------------------------------------------------
+//
+// `tests/` is compiled into this crate rather than as separate integration
+// crates. Cargo only enables `lto` for a unit whose crate types can all be
+// linked with it, and an rlib cannot, so `crate-type = ["cdylib", "lib"]`
+// made `lto = "fat"` a silent no-op. The artifact is `cdylib`-only now, so
+// cargo builds no rlib for the suite to link against and the suite is included
+// here, with `autotests = false` keeping cargo from also building it as
+// integration-test binaries.
+//
+// `extern crate self as market_pinocchio` keeps every existing `market_pinocchio::`
+// path in those files resolving unchanged.
+#[cfg(test)]
+extern crate self as market_pinocchio;
+
+#[cfg(test)]
+#[path = "../tests/conformance.rs"]
+mod conformance;
+#[cfg(test)]
+#[path = "../tests/delegation_wire.rs"]
+mod delegation_wire;

@@ -341,3 +341,22 @@ mod tests {
         assert_eq!(ID, oracle_adapter::ID.to_bytes());
     }
 }
+
+// --- The test suite -------------------------------------------------------
+//
+// `tests/` is compiled into this crate rather than as separate integration
+// crates. Cargo only enables `lto` for a unit whose crate types can all be
+// linked with it, and an rlib cannot, so `crate-type = ["cdylib", "lib"]`
+// made `lto = "fat"` a silent no-op. The artifact is `cdylib`-only now, so
+// cargo builds no rlib for the suite to link against and the suite is included
+// here, with `autotests = false` keeping cargo from also building it as
+// integration-test binaries.
+//
+// `extern crate self as oracle_adapter_pinocchio` keeps every existing `oracle_adapter_pinocchio::`
+// path in those files resolving unchanged.
+#[cfg(test)]
+extern crate self as oracle_adapter_pinocchio;
+
+#[cfg(test)]
+#[path = "../tests/conformance.rs"]
+mod conformance;

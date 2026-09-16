@@ -10,9 +10,15 @@ name = "oracle-adapter-pinocchio"
 version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0"
+# The `tests/` suite is compiled into the crate (see `src/lib.rs`).
+autotests = false
 
 [lib]
-crate-type = ["cdylib", "lib"]
+# `cdylib` **alone**. Cargo only enables `lto` for a unit whose crate types can
+# all be linked with it, and an rlib cannot, so `["cdylib", "lib"]` made
+# `lto = "fat"` below a silent no-op. Dropping the rlib lets LTO run; see
+# `src/lib.rs` for how the `tests/` suite is compiled instead.
+crate-type = ["cdylib"]
 
 [features]
 # Mirrors the Anchor variant: lets a caller link this in as a plain library

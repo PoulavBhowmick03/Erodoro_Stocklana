@@ -14,11 +14,14 @@
 # dependencies to stale versions trades one maintenance problem for a worse one.
 TOOLS_VERSION ?= v1.54
 
-# Two unstable rustc flags, worth 0.2091 SOL across the deploy path. They drop
-# the file/line/column records behind `#[track_caller]` panics and the bodies of
-# derived `Debug` impls. Neither is reachable here: no program calls `msg!` and
-# no program source formats a `{:?}`. Per-program numbers are in
+# Two unstable rustc flags, worth 0.2091 SOL across the **Anchor** deploy path.
+# They drop the file/line/column records behind `#[track_caller]` panics and the
+# bodies of derived `Debug` impls. Neither is reachable here: no program calls
+# `msg!` and no program source formats a `{:?}`. Per-program numbers are in
 # `variants/COMPARISON.md`.
+#
+# The Pinocchio variants use `PINOCCHIO_RUSTFLAGS` below instead, which drops
+# `-Zlocation-detail=none` for a reason recorded there.
 #
 # Set through `CARGO_TARGET_<TRIPLE>_RUSTFLAGS` rather than `RUSTFLAGS`.
 # `cargo-build-sbf` folds a plain `RUSTFLAGS` into its target flags and hands
@@ -35,6 +38,28 @@ TOOLS_VERSION ?= v1.54
 SBF_TRIPLE ?= sbpf-solana-solana
 SIZE_RUSTFLAGS ?= -Zlocation-detail=none -Zfmt-debug=none
 SBF_ENV = CARGO_TARGET_$(shell echo $(SBF_TRIPLE) | tr 'a-z-' 'A-Z_')_RUSTFLAGS="$(SIZE_RUSTFLAGS)"
+
+# The Pinocchio variants do **not** get `-Zlocation-detail=none`, and that is
+# deliberate rather than an oversight.
+#
+# Presetting the target-scoped variable above displaces the flags
+# `cargo-build-sbf` composes for itself, and one of those is `-C lto=fat`. With
+# the `cdylib`+`lib` crate type the variants used to carry, cargo suppressed the
+# profile's `lto` anyway, so nothing was lost. Now that they are `cdylib`-only
+# (see `variants/*/Cargo.toml`) LTO actually runs, and that combination --
+# `-Zlocation-detail=none` *with* `lto = "fat"` -- miscompiles. Measured, not
+# assumed: the LTO build with that flag fails four lifecycle assertions on a
+# validator (settle returns `OraclePriceStale` where the price is fresh, redeem
+# returns `IllegalOwner`) while the identical source without the flag passes.
+# An unverifiable 6,880 bytes is not worth a collateral program that reads the
+# wrong account, so `-Zfmt-debug=none` is kept and `-Zlocation-detail=none` is
+# not. `-Zfmt-debug=none` is size-neutral once LTO runs -- 114,896 bytes on
+# `series` with it, 114,896 without -- so nothing is given up with the flag.
+#
+# The Anchor programs in `build` above keep both flags. They are `cdylib`+`lib`,
+# so their LTO stays off and the flag remains the pure win it was measured to be.
+PINOCCHIO_RUSTFLAGS ?= -Zfmt-debug=none
+PINOCCHIO_SBF_ENV = CARGO_TARGET_$(shell echo $(SBF_TRIPLE) | tr 'a-z-' 'A-Z_')_RUSTFLAGS="$(PINOCCHIO_RUSTFLAGS)"
 
 ## A tier whose `before()` cannot find its program calls `this.skip()`, and
 ## mocha then reports success having run nothing. That is how
@@ -325,11 +350,12 @@ build: ## Build all programs to SBF
 ## `factory`, `market` and `series`. They are
 ## independent workspaces, so `anchor build` does not reach them, and they were
 ## previously built by hand from `variants/COMPARISON.md`. A hand-built binary
-## loses $(SIZE_RUSTFLAGS), and 0.1018 SOL with it.
+## loses $(PINOCCHIO_RUSTFLAGS) and the `lto = "fat"` these crates get by being
+## `cdylib`-only -- together worth 0.2037 SOL across the four.
 variants: ## Build the Pinocchio deploy artifacts
 	@for v in oracle-adapter factory market series; do \
 	  echo "  building $$v-pinocchio" ; \
-	  ( cd variants/$$v-pinocchio && $(SBF_ENV) cargo build-sbf --tools-version $(TOOLS_VERSION) ) || exit 1 ; \
+	  ( cd variants/$$v-pinocchio && $(PINOCCHIO_SBF_ENV) cargo build-sbf --tools-version $(TOOLS_VERSION) ) || exit 1 ; \
 	done
 	@ls -la variants/*/target/deploy/*_pinocchio.so
 
