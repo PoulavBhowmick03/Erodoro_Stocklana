@@ -1,7 +1,5 @@
 import Link from "next/link";
 
-import { WaitlistButton } from "./waitlist-button";
-
 export function Nav() {
   return (
     <header
@@ -9,24 +7,21 @@ export function Nav() {
       className="border-line/80 bg-bg/88 sticky top-0 z-50 border-b backdrop-blur-md"
     >
       <nav
-        className="mx-auto flex h-[4.5rem] max-w-7xl items-center justify-between gap-4 px-4 sm:px-6"
+        className="mx-auto flex min-h-[4.5rem] max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:flex-nowrap sm:px-6"
         aria-label="Landing"
       >
-        <Link
-          href="/"
-          data-landing-wordmark
-          className="editorial-wordmark text-[1.35rem] tracking-[0.08em] uppercase transition-opacity hover:opacity-65"
-        >
-          erodoro
-        </Link>
-        <div className="flex shrink-0 items-center gap-2">
-          <WaitlistButton />
+        <div className="flex items-center gap-3 sm:gap-5">
           <Link
-            href="/app"
-            className="bg-text hover:bg-accent text-bg rounded-sm px-3 py-2 text-[0.8125rem] font-medium whitespace-nowrap transition-colors sm:px-4"
+            href="/"
+            data-landing-wordmark
+            className="editorial-wordmark text-[1.35rem] tracking-[0.08em] uppercase transition-opacity hover:opacity-65"
           >
-            Try devnet
+            erodoro
           </Link>
+          <span className="text-muted inline-flex items-center gap-1.5 whitespace-nowrap text-[0.625rem] font-medium sm:text-[0.6875rem]">
+            <span aria-hidden className="h-2 w-2 bg-accent" />
+            Built on Solana
+          </span>
         </div>
       </nav>
     </header>

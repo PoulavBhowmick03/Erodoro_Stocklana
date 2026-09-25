@@ -20,6 +20,12 @@
 const ROUTES = new Set([
   "/",
   "/app",
+  "/earn",
+  "/auctions",
+  "/market-rip",
+  "/swap",
+  "/rewards",
+  "/faucet",
   "/portfolio",
   "/mint",
   "/trade/markets",

@@ -6,6 +6,7 @@ import { formatDate, priceToUsd, shortKey, statusOf, fromRaw } from "@/lib/forma
 import type { LegName } from "@/lib/pdas";
 import { SeriesActions, useClaimMint } from "./series-actions";
 import { ManifestBookPanel } from "./manifest-book-panel";
+import { StrategyPayoff } from "./strategy-payoff";
 import { RoleToggle, useRole } from "./role-toggle";
 import { AddressLink, Field, InfoDot, Tabs } from "./ui";
 import { MagicBlockPricePanel, OraclePanel, OracleSafetyBanner } from "./oracle-panel";
@@ -284,7 +285,12 @@ export function SeriesDetail({
             </div>
           )}
           {detailTab === "payoff" && (
-            <PayoffPreview leg={leg} strike={priceToUsd(config.strike, decimals)} />
+            <div className="grid gap-6 lg:grid-cols-2">
+              <PayoffPreview leg={leg} strike={priceToUsd(config.strike, decimals)} />
+              {spotNumber !== null && spotNumber > 0 && strikeNumber > 0 && (
+                <StrategyPayoff tokenSpot={spotNumber} tokenCap={strikeNumber} premium={null} />
+              )}
+            </div>
           )}
           {detailTab === "oracle" && (
             <div className="space-y-4">

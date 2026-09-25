@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 
 /**
  * Light/dark control for the whole product.
@@ -16,16 +16,18 @@ import { useEffect, useState } from "react";
  */
 export const THEME_KEY = "erodoro.theme";
 
+/** A store that never changes, so the snapshot alone decides the value. */
+const subscribeNever = () => () => {};
+
 export function ThemeToggle({ compact = false }: { compact?: boolean }) {
-  const [dark, setDark] = useState(false);
   // Rendered on the server as light, so the first client paint has to agree
   // with the server before it is allowed to reflect the real setting.
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => {
-    setDark(document.documentElement.dataset.theme === "dark");
-    setReady(true);
-  }, []);
+  // `useSyncExternalStore` gives the server snapshot during prerender and the
+  // real one after hydration, with no setState in an effect to cascade from.
+  const ready = useSyncExternalStore(subscribeNever, () => true, () => false);
+  const [override, setOverride] = useState<boolean | null>(null);
+  const dark = override ?? (ready && document.documentElement.dataset.theme === "dark");
+  const setDark = setOverride;
 
   const toggle = () => {
     const next = !dark;

@@ -65,9 +65,12 @@ async function openMarket(signer, { intercept } = {}) {
   const fixture = await installChainFixture(context, FIXTURE, MODE, { intercept });
   fixtures.push(fixture);
   const page = await context.newPage();
+  // Recorded September 14: keep expiry and oracle freshness deterministic.
+  if (MODE === "replay") await page.clock.setFixedTime(new Date("2026-09-14T18:00:00Z"));
 
   await page.goto(`${BASE}/app`, { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(MODE === "record" ? 4_000 : 1_500);
+  await page.getByLabel("Rank by").selectOption("expiry");
   const row = page.locator('tr[data-tour="series-card"]').first();
   await row.waitFor({ state: "visible", timeout: 15_000 });
   await row.click();
@@ -82,7 +85,7 @@ async function compose(page, { side, price, size }) {
   await page.getByRole("button", { name: side === "buy" ? "Buy upside" : "Sell upside", exact: true }).click();
   await ticket.getByLabel(/limit price/i).fill(price);
   await ticket.getByLabel(/quantity/i).fill(size);
-  await page.waitForTimeout(400);
+  await page.waitForTimeout(1000);
   return ticket;
 }
 
@@ -104,8 +107,8 @@ async function submitAndRead(signer, intercept, order = { side: "sell", price: "
   await ticket.getByRole("button", { name: /^(Sell|Buy) Upside claim$/ }).click();
   const progress = page.locator("[data-transaction-progress]");
   await progress.waitFor({ state: "visible", timeout: 25_000 }).catch(() => {});
-  // Let the step settle out of its in-flight state before reading it.
-  await page.waitForTimeout(1_500);
+  // Wait for the failure outcome, not just the newly mounted progress list.
+  await progress.getByRole("button", { name: /Try again|Start over/ }).waitFor({ state: "visible", timeout: 25_000 }).catch(() => {});
   const text = (await progress.innerText().catch(() => "")) ?? "";
   return { context, page, progress, text };
 }
@@ -187,6 +190,7 @@ async function submitAndRead(signer, intercept, order = { side: "sell", price: "
   const progress = page.locator("[data-transaction-progress]");
   await progress.waitFor({ state: "visible", timeout: 20_000 }).catch(() => {});
 
+  await progress.getByRole("button", { name: /Try again|Start over/ }).waitFor({ state: "visible", timeout: 25_000 }).catch(() => {});
   const text = (await progress.innerText().catch(() => "")) ?? "";
   ok(/Cancelled in your wallet/i.test(text), "a rejected approval is reported as cancelled");
   ok(
@@ -217,6 +221,8 @@ async function submitAndRead(signer, intercept, order = { side: "sell", price: "
   });
   fixtures.push(await installChainFixture(context, FIXTURE, MODE));
   const page = await context.newPage();
+  // Recorded September 14: keep expiry and oracle freshness deterministic.
+  if (MODE === "replay") await page.clock.setFixedTime(new Date("2026-09-14T18:00:00Z"));
   await page.goto(`${BASE}/portfolio`, { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(MODE === "record" ? 9_000 : 4_000);
 
@@ -251,10 +257,10 @@ async function submitAndRead(signer, intercept, order = { side: "sell", price: "
           result: {
             context: { slot: 1 },
             value: {
-              err: { InstructionError: [0, { Custom: 6003 }] },
+              err: { InstructionError: [0, { Custom: 6020 }] },
               logs: [
                 "Program log: Instruction: Split",
-                "Program log: AnchorError caused by account: holder_collateral. Error Code: InsufficientCollateral. Error Number: 6003. Error Message: not enough collateral.",
+                "Program log: AnchorError caused by account: holder_collateral. Error Code: InsufficientCollateral. Error Number: 6020. Error Message: vault holds less collateral than outstanding claims.",
               ],
               unitsConsumed: 1200,
             },
@@ -264,14 +270,14 @@ async function submitAndRead(signer, intercept, order = { side: "sell", price: "
   );
 
   // The error table turns the Anchor code into a sentence, which is the point
-  // of having one: "not enough collateral" is what the user can act on, and
+  // of having one: the decoded collateral shortfall is what the user can act on, and
   // leaking `InsufficientCollateral` at them would be a regression, not a win.
   ok(
-    /not enough collateral/i.test(text),
+    /vault holds less collateral/i.test(text),
     "a program rejection reaches the user as the program's reason, in plain language",
   );
   ok(
-    !/Custom:\s*6003|InstructionError/.test(text),
+    !/Custom:\s*6020|InstructionError/.test(text),
     "the raw instruction error is not shown in place of that reason",
   );
   ok(
@@ -334,6 +340,8 @@ async function submitAndRead(signer, intercept, order = { side: "sell", price: "
   });
   fixtures.push(await installChainFixture(context, FIXTURE, MODE));
   const page = await context.newPage();
+  // Recorded September 14: keep expiry and oracle freshness deterministic.
+  if (MODE === "replay") await page.clock.setFixedTime(new Date("2026-09-14T18:00:00Z"));
   await page.goto(`${BASE}/trade/markets?market=11111111111111111111111111111111&view=n`, {
     waitUntil: "domcontentloaded",
   });
@@ -365,6 +373,8 @@ async function submitAndRead(signer, intercept, order = { side: "sell", price: "
   });
   fixtures.push(await installChainFixture(context, FIXTURE, MODE));
   const page = await context.newPage();
+  // Recorded September 14: keep expiry and oracle freshness deterministic.
+  if (MODE === "replay") await page.clock.setFixedTime(new Date("2026-09-14T18:00:00Z"));
   await page.goto(`${BASE}/app`, { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(MODE === "record" ? 4_000 : 1_500);
   await page.locator('tr[data-tour="series-card"]').first().click();

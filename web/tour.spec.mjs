@@ -1,4 +1,5 @@
 import { chromium } from "playwright";
+import { installChainFixture } from "./tests/chain-fixture.mjs";
 import { serveStaticExport } from "./tests/static-server.mjs";
 
 const PORT = 4319;
@@ -6,6 +7,8 @@ const closeServer = await serveStaticExport(PORT);
 
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+await installChainFixture(page.context(), "journeys", "replay");
+await page.clock.setFixedTime(new Date("2026-09-14T18:00:00Z"));
 const failures = [];
 const hydrationErrors = [];
 const ok = (condition, message) => {
@@ -22,15 +25,10 @@ page.on("pageerror", (error) => {
 
 await page.goto(`http://localhost:${PORT}/`);
 ok((await page.locator("[data-landing-wordmark]").textContent()).trim() === "erodoro", "landing header keeps the erodoro wordmark");
-ok(await visible(page.locator("[data-landing-header]").getByRole("link", { name: "Try devnet" })), "landing header exposes the devnet app");
-ok(await visible(page.locator("[data-landing-header]").getByRole("button", { name: "Request access" })), "landing header exposes the waitlist");
-ok(!(await visible(page.locator("[data-landing-header]").getByRole("link", { name: "Docs" }))), "landing header omits secondary documentation links");
-await page.locator("[data-landing-header]").getByRole("button", { name: "Request access" }).click();
-ok(await visible(page.getByRole("dialog", { name: "Join the waitlist" }).getByRole("textbox", { name: "Email" })), "request access opens an email waitlist");
-await page.getByRole("button", { name: "Close waitlist" }).last().click();
-ok(await visible(page.getByRole("heading", { name: "Set your strike. Sell the upside." })), "hero states the seller decision clearly");
-ok(await visible(page.getByRole("link", { name: "Try on devnet" })), "hero labels the deployment as devnet");
-ok(await visible(page.getByRole("link", { name: "See how settlement works" })), "hero links directly to settlement education");
+ok(await visible(page.locator("[data-landing-header]").getByText("Built on Solana")), "landing header identifies Solana");
+ok(await visible(page.getByRole("heading", { name: "Make your stocks earn." })), "hero uses the copied Earn headline");
+ok(await visible(page.locator("[data-hero-actions]").getByRole("link", { name: /Explore Earn/ })), "hero opens Earn");
+ok(await visible(page.locator("[data-hero-actions]").getByRole("link", { name: "How it works" })), "hero links to education");
 ok(await visible(page.locator("#risk").getByText("You still bear the downside")), "downside risk is permanently visible");
 ok(await visible(page.locator("#risk").getByText("Issuer controls still apply")), "issuer-control risk is permanently visible");
 ok(await visible(page.getByText("P · Capped equity claim", { exact: true }).first()), "P is defined before the calculator");
@@ -40,12 +38,12 @@ ok(!(await visible(page.getByText("Hedge", { exact: true }))), "unrelated hedge 
 ok(await visible(page.locator("#faq").getByText("What do I receive at redemption?")), "FAQ explains the redemption asset");
 
 await page.goto(`http://localhost:${PORT}/app`);
-await page.getByRole("heading", { name: "Markets" }).waitFor({ timeout: 10_000 });
+await page.getByRole("heading", { name: /Choose where to sell your upside|Trade stock upside/ }).waitFor({ timeout: 10_000 });
 ok((await page.title()) === "Markets · erodoro", "Markets has the correct browser identity");
-ok(await visible(page.getByText("I own the collateral")), "seller intent is plain language");
-ok(await visible(page.getByText("I want exposure above the strike")), "buyer intent is plain language");
+ok(await visible(page.getByText("I hold stock")), "seller intent is plain language");
+ok(await visible(page.getByText("I want upside")), "buyer intent is plain language");
 ok(!(await visible(page.getByRole("link", { name: /registry/i }))), "admin registry is absent from user navigation");
-ok(await visible(page.getByRole("link", { name: "Create demo assets" }).first()), "demo asset setup is available from the app header");
+ok(await visible(page.getByRole("link", { name: "Get test assets" }).first()), "demo asset setup is available from the app header");
 await page.getByText("Select wallet", { exact: true }).click();
 ok(await visible(page.getByText("demo account", { exact: true })), "demo traders are available under Select wallet");
 
@@ -72,9 +70,9 @@ ok(
 );
 
 await page.goto(`http://localhost:${PORT}/portfolio`);
-await page.getByRole("heading", { name: "Portfolio" }).waitFor({ timeout: 8_000 });
+await page.getByRole("heading", { name: "Your portfolio" }).waitFor({ timeout: 8_000 });
 ok((await page.title()) === "Portfolio · erodoro", "Portfolio has its own metadata and heading");
-ok(await visible(page.getByText("Your P and N positions, open orders, and balances held in live execution.")), "Portfolio has position-specific guidance");
+ok(await visible(page.getByText("Your positions, premiums, and tokens.")), "Portfolio has position-specific guidance");
 // The two categories that used to be invisible: a resting order, and money
 // sitting inside an execution session rather than in the wallet.
 ok(await visible(page.getByRole("tab", { name: /Open orders/ })), "Portfolio accounts for resting orders");

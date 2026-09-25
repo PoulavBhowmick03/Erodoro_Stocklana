@@ -9,8 +9,8 @@ export type NavItem = { href: string; label: string; hint?: string };
  * A grouped nav dropdown.
  *
  * The header used to be a flat row of every route, which gave equal weight to
- * things that do not deserve it: reading about the payoff, minting devnet
- * scaffolding, and actually holding a position are not the same kind of thing.
+ * things that do not deserve it: reading about the payoff, browsing markets,
+ * and actually holding a position are not the same kind of thing.
  * Explanation collapses in here; the surfaces you act on stay flat and visible.
  *
  * Closes on outside click and on Escape, and reports `aria-expanded`, because a

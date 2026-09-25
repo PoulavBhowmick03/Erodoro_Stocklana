@@ -6,7 +6,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import { AppChrome } from "./app-chrome";
 import { MarketsTable } from "./markets-table";
-import { RoleToggle, useRole } from "./role-toggle";
+import { MarketplaceIntro } from "./marketplace-intro";
+import { useRole } from "./role-toggle";
 import { IS_DEVNET } from "@/lib/network-config";
 
 export function AppShell() {
@@ -36,8 +37,8 @@ export function AppShell() {
 function Routed() {
   const router = useRouter();
   const params = useSearchParams();
-  const selected = params.get("series");
-  const [role, setRole] = useRole();
+  const selected = params.get("series") ?? params.get("market");
+  const [role] = useRole();
 
   const open = useCallback(
     (address: string) => router.push(`/trade/markets?market=${address}&view=n`),
@@ -53,9 +54,7 @@ function Routed() {
   if (view === "positions") return <PortfolioRedirect />;
   return (
     <div className="space-y-4">
-      <div data-tour="role-choice">
-        <RoleToggle role={role} onChange={setRole} />
-      </div>
+      <MarketplaceIntro />
       <div data-tour="series-list">
         <MarketsTable onOpen={open} intent={role} />
       </div>

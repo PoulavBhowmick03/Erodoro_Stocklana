@@ -20,7 +20,8 @@
     "test:audit:build": "next build && node ux-audit.spec.mjs",
     "test:flows": "node flows.spec.mjs",
     "record:flows": "next build && FIXTURE_MODE=record node flows.spec.mjs",
-    "gen:deployment": "node scripts/gen-deployment-facts.mjs"
+    "gen:deployment": "node scripts/gen-deployment-facts.mjs",
+    "test:ui-copy": "node ui-copy.spec.mjs"
   },
   "dependencies": {
     "@bonasa-tech/manifest-sdk": "0.2.44",

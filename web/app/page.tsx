@@ -1,23 +1,23 @@
 import Link from "next/link";
 import { Nav } from "@/components/nav";
-import { PayoffCalculator } from "@/components/payoff-calculator";
+import { EarnEntryLink } from "@/components/earn-entry-link";
 import { HeroArt } from "@/components/hero-art";
+import { PayoffCalculator } from "@/components/payoff-calculator";
 import { Reveal } from "@/components/reveal";
 import { Showcase } from "@/components/showcase";
-import { Ticker } from "@/components/ticker";
 import { VerifyPanel } from "@/components/verify-panel";
+import { Ticker } from "@/components/ticker";
 import { IS_DEVNET } from "@/lib/network-config";
-
-const GITHUB = "https://github.com/guha-rahul/erodoro-protocol";
-const ACCESS = GITHUB + "/issues/new?labels=access&title=Request%20early%20access";
+import { LandingStrategies } from "@/components/landing-strategies";
 
 export default function Landing() {
   return (
     <>
       <Nav />
       <main className="editorial relative flex-1">
-        <HeroBand />
         <Statement />
+        <HeroBand />
+        <LandingStrategies />
         <ProtocolStrip />
         <TheSplit />
         <Payoff />
@@ -36,16 +36,14 @@ export default function Landing() {
 /**
  * The band above everything.
  *
- * Two ticker strips bounding a full-bleed still, borrowed from the editorial
- * protocol sites this page is trying to stand next to. What sits in the strips
- * is the difference: those run a token price, and this runs the deployment,
- * because there is no token and a number nobody can check is worth less than
- * no number at all.
+ * Two ticker strips bounding a full-bleed still. What sits in the strips is
+ * the deployment rather than a price, because there is no token and a number
+ * nobody can check is worth less than no number at all.
  *
  * The caption sits in a solid block rather than floating over the photograph.
  * Partly because the art is authored greyscale and tinted per theme, so there
  * is no one text colour that reads against it in both -- and partly because
- * contrast over an image cannot be measured, by our audit or by anyone else.
+ * contrast over an image cannot be measured, by us or by anyone else.
  */
 function HeroBand() {
   return (
@@ -56,9 +54,9 @@ function HeroBand() {
           <HeroArt />
         </div>
         {/* The wordmark set into the photograph rather than on top of it.
-            `difference` on the layer and `overlay` on the type is what lets it
-            take the engraving's own tone instead of sitting over it as a
-            sticker -- and it needs no second colour for the dark theme. */}
+            `difference` lets it take the engraving's own tone instead of
+            sitting over it as a sticker, and needs no second colour for the
+            dark theme. */}
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 flex items-center justify-center mix-blend-difference"
@@ -67,11 +65,11 @@ function HeroBand() {
         </div>
         <div className="ink-band absolute bottom-0 left-0 max-w-[38rem] px-6 py-5 sm:px-10 sm:py-7">
           <p className="display-3">
-            {IS_DEVNET ? "This is a devnet preview." : "Read the risks before trading."}
+            {IS_DEVNET ? "This is a testnet preview." : "Read the risks before trading."}
           </p>
           <p className="text-muted prose-editorial mt-2.5 text-[0.9375rem]">
             {IS_DEVNET
-              ? "Unaudited, with no real-value assets. Everything below is deployed and checkable, and nothing here is a claim about a product that ships."
+              ? "Unaudited, with test assets that carry no value. Every address in the strips above is deployed and checkable, and none of it is a claim about a product that ships."
               : "Erodoro caps upside. It does not protect against a fall in the collateral."}
           </p>
         </div>
@@ -93,57 +91,47 @@ function Statement() {
     <section className="border-line border-b">
       <div className="mx-auto grid max-w-6xl gap-12 px-6 py-16 sm:py-24 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:items-end">
         <div>
-          <h1 className="display-1 max-w-[15ch] text-balance">
-            Set your strike. Sell the upside.
+          <h1 className="display-1 max-w-[16ch] text-balance">
+            Make your stocks earn.
           </h1>
           <p className="text-muted prose-editorial mt-8 max-w-[52ch] text-lg text-pretty">
-            Lock an eligible tokenized equity, choose a strike and expiry, then
-            offer the upside claim for USDC. You keep the capped equity claim
-            below the strike.
+            Your stocks. Your terms. Sell the upside for a premium.
           </p>
 
           <div data-hero-actions className="mt-10 flex flex-wrap items-center gap-3">
             {/* Square, hairline, no shadow. A rounded button reads as software
                 chrome; this page is meant to read as print. */}
-            <Link
-              href="/app"
-              data-cta
+            <EarnEntryLink
               className="bg-accent hover:bg-text text-ink label-mono inline-flex items-center gap-3 px-6 py-3.5 tracking-[0.1em] uppercase transition-colors"
             >
-              {IS_DEVNET ? "Try on devnet" : "Open markets"} <span aria-hidden>↗</span>
-            </Link>
-            <a
-              href={ACCESS}
-              data-cta
-              className="border-text hover:bg-text hover:text-bg label-mono inline-flex items-center gap-3 border px-6 py-3.5 tracking-[0.1em] uppercase transition-colors"
-            >
-              Request early access
-            </a>
+              Explore Earn <span aria-hidden>↗</span>
+            </EarnEntryLink>
             <Link
-              href="#payoff"
+              href="#how"
               className="text-muted hover:text-accent-ink prose-editorial px-2 py-3 text-[0.9375rem] underline underline-offset-4 transition-colors"
             >
-              See how settlement works
+              How it works
             </Link>
           </div>
-        </div>
 
-        {/* The stack, named rather than badged. These are four dependencies a
-            reader can go and verify, not partners who endorsed anything. */}
-        <div className="lg:pb-2">
-          <p className="kicker">Built on</p>
+          {/* Directly under the pitch, not buried in the FAQ. Someone who reads
+              only the hero must still learn what they are giving up. */}
+          <p className="text-muted prose-editorial mt-8 max-w-[54ch] text-[0.875rem]">
+            You keep the downside risk and give up gains above your chosen price.
+            Eligibility restrictions apply.
+          </p>
+        </div>
+        <div className="min-w-0 lg:pb-2">
+          <h2 className="kicker">On your terms</h2>
           <ul className="border-line mt-5 grid grid-cols-2 border-t border-l">
             {[
-              ["Solana", "Settlement and custody"],
-              ["MagicBlock", "Live order execution"],
-              ["Manifest", "The order book"],
-              ["Pyth", "Settlement price"],
-            ].map(([name, role]) => (
-              <li key={name} className="border-line hover:bg-panel border-r border-b p-5 transition-colors">
-                <span className="display-3 block text-[1.15rem] tracking-[0.06em] uppercase">
-                  {name}
-                </span>
-                <span className="text-dim prose-editorial mt-1.5 block text-[0.8125rem]">{role}</span>
+              "Set your cap",
+              "Pick an expiry",
+              "Choose your minimum",
+              "Set a limit price",
+            ].map((title) => (
+              <li key={title} className="border-line hover:bg-panel flex min-h-28 min-w-0 items-end border-r border-b p-4 transition-colors sm:min-h-32 sm:p-5">
+                <h3 className="display-3 text-[1.35rem] sm:text-[1.65rem]">{title}</h3>
               </li>
             ))}
           </ul>
@@ -179,7 +167,7 @@ const STEPS = [
     kicker: "One deposit",
     body: (
       <>
-        Deposit an eligible tokenized equity and choose a strike and expiry. Erodoro
+        Deposit an eligible tokenized stock and choose a strike and expiry. Erodoro
         creates equal amounts of <Em>P</Em> and <Em>N</Em>.
       </>
     ),
@@ -201,8 +189,9 @@ const STEPS = [
     kicker: "Anyone can call it",
     body: (
       <>
-        After expiry, anyone can trigger settlement using the market&rsquo;s predefined
-        Pyth feed and settlement window. The caller cannot substitute another price.
+        After expiry, anyone can trigger settlement using the price feed and
+        settlement window fixed when the market was created. The caller cannot
+        substitute another price.
       </>
     ),
   },
@@ -211,10 +200,9 @@ const STEPS = [
 /**
  * How it works, given the room it needs.
  *
- * The card anatomy is the borrowed part: a short headline at the top, then
- * deliberate empty space, then the kicker and the body sitting at the bottom
- * edge. The gap is doing work -- it is what stops three paragraphs in three
- * boxes from reading as a feature grid.
+ * A short headline at the top, then deliberate empty space, then the kicker and
+ * the body sitting at the bottom edge. The gap is doing work -- it is what
+ * stops three paragraphs in three boxes from reading as a feature grid.
  */
 function TheSplit() {
   return (
@@ -223,7 +211,7 @@ function TheSplit() {
         <p className="kicker">The split</p>
         <Reveal
           as="h2"
-          text="One share becomes two claims. You decide which one to keep."
+          text="One tokenized-stock position becomes two claims. You decide which one to keep."
           className="display-2 mt-5 max-w-[20ch]"
         />
 
@@ -238,7 +226,9 @@ function TheSplit() {
                 <span className="kicker">{step.kicker}</span>
               </div>
               <h3 className="display-3 mt-7">{step.title}</h3>
-              <p className="text-muted prose-editorial mt-4 flex-1 text-[0.9375rem]">{step.body}</p>
+              <p className="text-muted prose-editorial mt-4 flex-1 text-[0.9375rem]">
+                {step.body}
+              </p>
             </div>
           ))}
         </div>
@@ -261,14 +251,16 @@ function Risk() {
           <div>
             <h3 className="display-3">You still bear the downside</h3>
             <p className="text-muted prose-editorial mt-3 text-[0.9375rem]">
-              If the collateral falls, P falls with it. The USDC received for N is the only offset.
+              If the collateral falls, P falls with it. The cash received for N is
+              the only offset.
             </p>
           </div>
           <div>
             <h3 className="display-3">Issuer controls still apply</h3>
             <p className="text-muted prose-editorial mt-3 text-[0.9375rem]">
-              Some Token-2022 assets give an issuer a permanent delegate that can move collateral.
-              A short vault causes the same proportional haircut for every redemption.
+              The issuer of a tokenized stock can pause transfers, deny an address,
+              or seize collateral from any address, including this vault. A short
+              vault causes the same proportional haircut for every redemption.
             </p>
           </div>
         </div>
@@ -291,12 +283,17 @@ const ROWS: [string, string, string, string?][] = [
 function Payoff() {
   return (
     <Section id="payoff" title="The payoff">
-      <div id="n" className="border-line mb-8 grid border-y sm:grid-cols-2 sm:divide-x sm:divide-[var(--color-line)]">
+      <div
+        id="n"
+        className="border-line mb-8 grid border-y sm:grid-cols-2 sm:divide-x sm:divide-[var(--color-line)]"
+      >
         <div className="py-6 sm:pr-8">
           <div className="text-p font-mono text-[0.8125rem] tracking-[0.12em] uppercase">
             P · Capped equity claim
           </div>
-          <p className="text-muted mt-2 text-sm">Receives the collateral value up to the strike.</p>
+          <p className="text-muted mt-2 text-sm">
+            Receives the collateral value up to the strike.
+          </p>
           <p className="mt-4 font-mono text-sm">P = min(S, K)</p>
         </div>
         <div className="border-line border-t py-6 sm:border-t-0 sm:pl-8">
@@ -308,7 +305,8 @@ function Payoff() {
         </div>
       </div>
       <p className="text-dim mb-6 text-sm">
-        S is the settlement price and K is the strike. P and N together represent the locked collateral.
+        S is the settlement price and K is the strike. P and N together represent the
+        locked collateral.
       </p>
       <PayoffCalculator />
 
@@ -348,8 +346,8 @@ function Payoff() {
         </table>
       </div>
       <p className="text-dim mt-4 text-sm">
-        One tokenized equity worth $400 when the position is created. Strike: $500.
-        Values exclude any USDC received from selling N.
+        One tokenized stock worth $400 when the position is created. Strike: $500.
+        Values exclude any cash received from selling N.
       </p>
     </Section>
   );
@@ -418,9 +416,9 @@ const FAQ: [string, React.ReactNode][] = [
   [
     "What fees does Erodoro charge?",
     <>
-      Current V1 markets configure the protocol split fee at zero, and the order-book
-      program charges no trading or cancellation fee. Solana network fees can still
-      apply to L1 actions such as locking, unlocking, settlement, and redemption.
+      Each series specifies its split fee. Solana transaction fees apply to locking,
+      unlocking, settlement and redemption. Check the selected market and execution
+      network for trading and session costs.
     </>,
   ],
   [
@@ -520,33 +518,30 @@ function Footer() {
     <footer className="border-line border-t">
       <div className="mx-auto grid max-w-6xl gap-12 px-6 py-16 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] lg:gap-20">
         <div>
-          {/* Not a heading: `tour.spec` resolves the hero by its accessible
-              name, and a second element with a near-identical one would make
-              that locator ambiguous rather than wrong -- which is the harder
-              kind of failure to read. */}
+          {/* Not a heading: the hero is resolved by its accessible name, and a
+              second element with a near-identical one would make that locator
+              ambiguous rather than wrong -- the harder kind of failure to
+              read. */}
           <p className="display-2 max-w-[12ch]">Keep the share. Sell the ceiling.</p>
 
           <div className="mt-12 grid grid-cols-2 gap-8 sm:grid-cols-4">
             {[
-              ["Product", [["Markets", "/app"], ["Portfolio", "/portfolio"], ["Payoff", "#payoff"]]],
-              ["Protocol", [["How it works", "#how"], ["Risks", "#risk"], ["Deployed", "#verify"]]],
-              ["Source", [["GitHub", GITHUB], ["Docs", GITHUB + "#readme"]]],
-              ["Questions", [["FAQ", "#faq"], ["Request access", ACCESS]]],
+              ["Product", [["Earn", "/earn"], ["Markets", "/app"], ["Portfolio", "/portfolio"]]],
+              ["Protocol", [["How it works", "#how"], ["The payoff", "#payoff"], ["Risks", "#risk"]]],
+              ["Sandbox", [["Test assets", "/faucet"], ["List a market", "/create"]]],
+              ["Questions", [["FAQ", "#faq"]]],
             ].map(([heading, links]) => (
               <div key={heading as string}>
                 <p className="kicker">{heading as string}</p>
                 <ul className="mt-4 space-y-2.5">
                   {(links as [string, string][]).map(([label, href]) => (
                     <li key={label}>
-                      {href.startsWith("http") ? (
-                        <a href={href} className="text-muted hover:text-accent-ink label-mono underline decoration-1 underline-offset-4 opacity-80 transition-all hover:opacity-100">
-                          {label}
-                        </a>
-                      ) : (
-                        <Link href={href} className="text-muted hover:text-accent-ink label-mono underline decoration-1 underline-offset-4 opacity-80 transition-all hover:opacity-100">
-                          {label}
-                        </Link>
-                      )}
+                      <Link
+                        href={href}
+                        className="text-muted hover:text-accent-ink label-mono underline decoration-1 underline-offset-4 opacity-80 transition-all hover:opacity-100"
+                      >
+                        {label}
+                      </Link>
                     </li>
                   ))}
                 </ul>
@@ -556,24 +551,12 @@ function Footer() {
         </div>
 
         <div className="border-line lg:border-l lg:pl-20">
-          <p className="display-3">Be early on the strike.</p>
+          <p className="display-3">What is actually deployed.</p>
           <p className="text-muted prose-editorial mt-3 max-w-[36ch] text-[0.9375rem]">
-            Access is handled in the open, on the repository. Opening an issue is
-            the whole process — there is no list and nothing to unsubscribe from.
+            Nothing is live on Solana mainnet. The devnet addresses in the strip at the
+            top of this page are the whole of it, and every one of them can be read on
+            a block explorer without asking us.
           </p>
-          {/* Styled like the newsletter field this borrows from, but honestly a
-              link: the site is a static export with no server to post to, and a
-              form that silently discards what someone typed is worse than none. */}
-          <a
-            href={ACCESS}
-            data-cta
-            className="border-text hover:bg-text hover:text-bg label-mono group mt-7 flex items-center justify-between gap-4 border px-5 py-3.5 tracking-[0.1em] uppercase transition-colors"
-          >
-            <span>Request early access</span>
-            <span aria-hidden className="text-dim group-hover:text-accent-ink transition-colors">
-              ↘
-            </span>
-          </a>
         </div>
       </div>
 
@@ -581,7 +564,7 @@ function Footer() {
         <div className="text-dim mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-6 py-6 text-sm">
           <span className="display-3 text-text tracking-[0.06em] uppercase">erodoro</span>
           <span className="font-mono text-[0.75rem] tracking-[0.1em] uppercase">
-            Solana settlement · MagicBlock execution
+            Solana settlement · Unaudited
           </span>
         </div>
       </div>
@@ -592,9 +575,9 @@ function Footer() {
 /**
  * The closing band: the payoff, drawn once more at full width.
  *
- * The page this borrows from ends on a large piece of line art. This is the
- * same gesture with the one drawing erodoro already owns — the shape of the
- * thing being sold, flat below the strike and rising after it.
+ * The page ends on a large piece of line art -- the same gesture with the one
+ * drawing erodoro already owns: the shape of the thing being sold, flat below
+ * the strike and rising after it.
  */
 function ClosingBand() {
   return (

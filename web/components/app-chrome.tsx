@@ -1,212 +1,147 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useEffect, useState } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { Logo } from "./logo";
 import { NavMenu, type NavItem } from "./nav-menu";
 import { WalletButton } from "./wallet-button";
 import { ThemeToggle } from "./theme-toggle";
 import { TestWalletBar } from "./test-wallet";
 import { TourButton } from "./tour";
+import { useRole } from "./role-toggle";
 import { usePrograms } from "@/lib/programs";
 import { useSigner } from "@/lib/use-signer";
 import { factoryPda } from "@/lib/pdas";
 import { IS_DEVNET, NETWORK } from "@/lib/network-config";
 
-/**
- * Header, nav and footer for every page inside the app.
- *
- * Extracted from `AppShell` once there was a second route: a page that nothing
- * links to is a page nobody finds, and the app had grown a second one with no
- * way to reach it.
- *
- * The nav is grouped rather than flat. Everything used to sit in one row, which
- * put "read what P and N are" beside "mint devnet scaffolding" beside "look at
- * what you are holding" as though they were peers. Now explanation collapses
- * into menus, the two surfaces you act on stay flat, and network administration
- * sits apart from both.
- */
-
-/** Anchors on the landing page. Ids verified in `app/page.tsx`. */
 const LEARN: NavItem[] = [
-  { href: "/#how", label: "How it works", hint: "Create P and N, then trade the upside" },
-  { href: "/#payoff", label: "Payoff", hint: "See how each claim settles" },
-  { href: "/#risk", label: "Risk", hint: "Understand seller and buyer losses" },
+  { href: "/#how", label: "How it works" },
+  { href: "/#payoff", label: "Payoff" },
+  { href: "/#risk", label: "Risk" },
   { href: "/#faq", label: "FAQ" },
 ];
-
-/**
- * Devnet scaffolding. Hidden elsewhere: there is nothing to mint on a cluster
- * that has the real tokenized equities, and offering to on mainnet would say
- * the opposite of what is true.
- */
-/** The two surfaces you act on. Flat, always visible. */
-const PRIMARY: [string, string][] = [
-  ["/app", "Markets"],
-  ["/portfolio", "Portfolio"],
+const TABS: NavItem[] = [
+  { href: "/earn", label: "Earn" },
+  { href: "/auctions", label: "Auctions" },
+  { href: "/app", label: "Markets" },
+  { href: "/market-rip", label: "Market Rip" },
+  { href: "/swap", label: "Swap" },
+  { href: "/portfolio", label: "Portfolio" },
+  { href: "/rewards", label: "Rewards" },
 ];
+const TESTNET_TABS: NavItem[] = [{ href: "/faucet", label: "Get test assets" }];
 
-/**
- * `useSearchParams` opts its subtree into client rendering, and the chrome is
- * deliberately prerendered so `/app` still ships as a static file -- see the
- * note in `app-shell.tsx`. Isolating it here keeps that true: the fallback
- * renders the same links without the active highlight.
- */
-function PrimaryLinks() {
-  const pathname = usePathname();
-
-  return (
-    <>
-      {PRIMARY.map(([href, label]) => {
-        const isPositions = label === "Portfolio";
-        const onMarket = pathname.startsWith("/trade/markets");
-        const active =
-          pathname === href ||
-          (onMarket && !isPositions);
-        return (
-          <Link
-            key={href}
-            href={href}
-            data-tour={isPositions ? "nav-portfolio" : undefined}
-            aria-current={active ? "page" : undefined}
-            className={`border-b px-3 py-5 text-sm transition-colors ${
-              active ? "border-text text-text" : "border-transparent text-muted hover:text-text"
-            }`}
-          >
-            {label}
-          </Link>
-        );
-      })}
-    </>
-  );
-}
-
-function PrimaryLinksFallback() {
-  return (
-    <>
-      {PRIMARY.map(([href, label]) => (
-        <Link
-          key={href}
-          href={href}
-          data-tour={label === "Portfolio" ? "nav-portfolio" : undefined}
-          className="border-b border-transparent px-3 py-5 text-sm text-muted transition-colors hover:text-text"
-        >
-          {label}
-        </Link>
-      ))}
-    </>
-  );
-}
-
+/** Base's visual shell, connected to this build's verified Solana network. */
 export function AppChrome({
+  active,
   title,
   lede,
   children,
-  hideIntroOnSeries = false,
   hideIntro = false,
+  hideIntroOnSeries = false,
 }: {
-  title: string;
-  lede: string;
-  children: React.ReactNode;
-  hideIntroOnSeries?: boolean;
+  active?: string;
+  title?: string;
+  lede?: string;
+  children?: React.ReactNode;
   hideIntro?: boolean;
+  hideIntroOnSeries?: boolean;
 }) {
   const pathname = usePathname();
-  const onDevnet = IS_DEVNET;
-
-  const onAdminRegistry = pathname === "/admin/registry";
-
+  const [, setRole] = useRole();
+  const selected =
+    active ??
+    (pathname.startsWith("/trade/")
+      ? "/app"
+      : pathname === "/mint"
+        ? "/faucet"
+        : pathname);
+  const tabs = [...TABS, ...(IS_DEVNET ? TESTNET_TABS : [])];
+  const selectRole = (href: string) => {
+    if (href === "/earn") setRole("seller");
+  };
   return (
     <>
-      <header className="border-line bg-bg/90 sticky top-0 z-50 border-b backdrop-blur-md">
-        {/* Five controls in one row does not fit a phone. The network label and
-            the full devnet-tools wording are the two that repeat elsewhere (the
-            footer, and the menu itself), so they are what gives way — the
-            wallet button never shrinks, because a clipped connect button is the
-            one control nobody can work around. */}
-        <div className="mx-auto flex h-[4.5rem] max-w-7xl items-center justify-between gap-3 px-4 sm:px-6">
-          <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+      <header className="border-line/80 bg-bg/88 sticky top-0 z-50 border-b backdrop-blur-md">
+        <div className="border-n/30 bg-n/10 text-n border-b px-4 py-2 text-center text-[0.8125rem]">
+          {IS_DEVNET
+            ? "Solana devnet · Test assets have no real value"
+            : "Solana Mainnet · Real funds · Trading requires verified deployments"}
+        </div>
+        <nav
+          className="mx-auto flex min-h-[4.5rem] max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6"
+          aria-label="App"
+        >
+          <div className="flex items-center gap-6">
             <Logo href="/" />
-            <span className="border-line text-dim hidden shrink-0 rounded-sm border px-2 py-0.5 font-mono text-[0.8125rem] tracking-[0.1em] uppercase sm:inline-block">
-              {NETWORK.label}
-            </span>
-            <nav className="hidden items-center gap-1 sm:flex">
-              <NavMenu label="Learn" items={LEARN} />
-              <Suspense fallback={<PrimaryLinksFallback />}>
-                <PrimaryLinks />
-              </Suspense>
-            </nav>
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            {onDevnet && (
-              <>
+            <div className="hidden items-center gap-1 2xl:flex">
+              {tabs.map((t) => (
                 <Link
-                  href="/mint"
-                  className="border-line text-muted hover:text-text hover:border-text hidden rounded-sm border px-3 py-2 text-[0.8125rem] whitespace-nowrap transition-colors sm:inline-flex"
+                  key={t.href}
+                  href={t.href}
+                  onClick={() => selectRole(t.href)}
+                  aria-current={selected === t.href ? "page" : undefined}
+                  data-tour={
+                    t.href === "/portfolio" ? "nav-portfolio" : undefined
+                  }
+                  className={`border-b-2 px-3 py-2 text-[0.875rem] transition-colors ${selected === t.href ? "border-accent text-text" : "text-muted hover:text-text border-transparent"}`}
                 >
-                  Create demo assets
+                  {t.label}
                 </Link>
-                <TourButton />
-              </>
-            )}
+              ))}
+              <NavMenu label="Learn" items={LEARN} />
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            {IS_DEVNET && <TourButton />}
+            <span
+              aria-label="App network"
+              className="border-line bg-bg text-text rounded-sm border px-2 py-2 text-xs"
+            >
+              Solana {NETWORK.label}
+            </span>
             <ThemeToggle />
-            {onDevnet ? (
-              <WalletMenu registry={onAdminRegistry} />
+            {IS_DEVNET ? (
+              <WalletMenu registry={pathname === "/admin/registry"} />
             ) : (
               <WalletButton />
             )}
           </div>
-        </div>
-      </header>
-
-      <main className="mx-auto w-full max-w-7xl flex-1 px-6 py-12">
-        <Suspense fallback={<PageIntroContent title={title} lede={lede} />}>
-          <PageIntro
-            title={title}
-            lede={lede}
-            hideOnSeries={hideIntroOnSeries}
-            hidden={hideIntro}
-          />
-        </Suspense>
-
-        {/* Small screens lose the header nav, so it reappears here rather than
-            leaving a route unreachable on a phone. The menus flatten: a
-            dropdown inside a wrapped row is worse than four more links. */}
-        <nav className="mb-8 flex flex-wrap gap-2 sm:hidden">
-          {[
-            ...PRIMARY,
-            ["/#how", "Learn"] as [string, string],
-            ...(onDevnet ? [["/mint", "Create demo assets"] as [string, string]] : []),
-          ].map(([href, label]) => (
+        </nav>
+        <nav
+          className="border-line/80 flex max-w-full gap-2 overflow-x-auto border-t px-4 py-3 2xl:hidden"
+          aria-label="App sections"
+        >
+          {[...tabs, { href: "/#how", label: "Learn" }].map((t) => (
             <Link
-              key={href}
-              href={href}
-              data-tour={label === "Portfolio" ? "nav-portfolio" : undefined}
-              className={`rounded-sm border px-3 py-1.5 text-sm ${
-                pathname === href ? "border-accent text-accent-ink" : "border-line text-muted"
-              }`}
+              key={t.href}
+              href={t.href}
+              onClick={() => selectRole(t.href)}
+              aria-current={selected === t.href ? "page" : undefined}
+              data-tour={
+                t.href === "/portfolio" ? "nav-portfolio-mobile" : undefined
+              }
+              className={`shrink-0 rounded-sm border px-3 py-1.5 text-[0.8125rem] transition-colors ${selected === t.href ? "border-accent text-accent-ink" : "border-line text-muted"}`}
             >
-              {label}
+              {t.label}
             </Link>
           ))}
         </nav>
-
-        {children}
-      </main>
-
-      <footer className="border-line border-t">
-        <div className="text-dim mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-2 px-6 py-8 text-sm">
-          <Link href="/" className="hover:text-text transition-colors">
-            ← Back to site
-          </Link>
-          <span>
-            {onDevnet
-              ? "Devnet demo · nothing here represents real value"
-              : "Mainnet · issuer assets and market risks apply"}
-          </span>
-        </div>
-      </footer>
+      </header>
+      {children && (
+        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6">
+          {!hideIntro && !hideIntroOnSeries && title && (
+            <div className="mb-6">
+              <h1 className="font-display text-3xl tracking-[-0.045em]">
+                {title}
+              </h1>
+              <p className="text-muted mt-3 max-w-[68ch] leading-7">{lede}</p>
+            </div>
+          )}
+          {children}
+        </main>
+      )}
     </>
   );
 }
@@ -221,7 +156,7 @@ function WalletMenu({ registry }: { registry: boolean }) {
           Anchoring to the summary at every width put the panel's left edge
           off-screen, because the control it hangs from sits near the right
           edge of a 390px header. */}
-      <div className="border-line bg-panel shadow-pop fixed top-[4.5rem] right-4 z-[80] w-[calc(100vw-2rem)] max-w-[26rem] space-y-3 rounded-md border p-4 sm:absolute sm:top-[calc(100%+0.5rem)] sm:right-0 sm:w-[26rem]">
+      <div className="border-line bg-panel shadow-pop fixed top-[8.5rem] right-4 z-[80] w-[calc(100vw-2rem)] max-w-[26rem] space-y-3 rounded-md border p-4 sm:absolute sm:top-[calc(100%+0.5rem)] sm:right-0 sm:w-[26rem]">
         <div className="flex flex-wrap items-center gap-2">
           <WalletButton />
           <AdminRegistryLink mobile />
@@ -252,7 +187,9 @@ function AdminRegistryLink({ mobile = false }: { mobile?: boolean }) {
       .catch(() => {
         if (live) setAuthorized(pathname === "/admin/registry");
       });
-    return () => { live = false; };
+    return () => {
+      live = false;
+    };
   }, [factory, pathname, signer]);
 
   if (!authorized) return null;
@@ -260,37 +197,13 @@ function AdminRegistryLink({ mobile = false }: { mobile?: boolean }) {
     <Link
       href="/admin/registry"
       aria-current={pathname === "/admin/registry" ? "page" : undefined}
-      className={mobile
-        ? `rounded-sm border px-3 py-1.5 text-sm ${pathname === "/admin/registry" ? "border-accent text-accent-ink" : "border-line text-muted"}`
-        : `border-b px-3 py-5 text-sm transition-colors ${pathname === "/admin/registry" ? "border-accent text-accent-ink" : "border-transparent text-dim hover:text-text"}`}
+      className={
+        mobile
+          ? `rounded-sm border px-3 py-1.5 text-sm ${pathname === "/admin/registry" ? "border-accent text-accent-ink" : "border-line text-muted"}`
+          : `border-b px-3 py-5 text-sm transition-colors ${pathname === "/admin/registry" ? "border-accent text-accent-ink" : "border-transparent text-dim hover:text-text"}`
+      }
     >
       Admin registry
     </Link>
-  );
-}
-
-function PageIntro({
-  title,
-  lede,
-  hideOnSeries = false,
-  hidden = false,
-}: {
-  title: string;
-  lede: string;
-  hideOnSeries?: boolean;
-  hidden?: boolean;
-}) {
-  const params = useSearchParams();
-  if (hidden) return null;
-  if (hideOnSeries && params.has("series")) return null;
-  return <PageIntroContent title={title} lede={lede} />;
-}
-
-function PageIntroContent({ title, lede }: { title: string; lede: string }) {
-  return (
-    <div className="border-line mb-10 grid gap-3 border-b pb-8 md:grid-cols-[minmax(0,1fr)_minmax(20rem,0.75fr)] md:items-end">
-      <h1 className="text-4xl font-medium tracking-[-0.045em] sm:text-5xl">{title}</h1>
-      <p className="text-muted max-w-[62ch] text-[0.95rem] leading-7 md:justify-self-end">{lede}</p>
-    </div>
   );
 }

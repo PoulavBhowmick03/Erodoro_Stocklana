@@ -20,6 +20,7 @@ export function TokenBalances({
   refreshKey = 0,
   onPick,
   title = "Your test tokens",
+  heading,
   emptyText = "Nothing yet. Mint some above and it will show up here.",
   tour,
   onHoldings,
@@ -29,6 +30,7 @@ export function TokenBalances({
   refreshKey?: number;
   onPick?: (mint: string) => void;
   title?: string;
+  heading?: "h2" | "h3";
   /** "Above" is only true on the mint screen, where the button actually is. */
   emptyText?: string;
   tour?: string;
@@ -71,6 +73,7 @@ export function TokenBalances({
     <Panel
       tour={tour}
       title={title}
+      heading={heading}
       subtitle={
         state.kind === "ready" && state.holdings.length > 0
           ? "Token-2022 balances held by the key you are signing with."

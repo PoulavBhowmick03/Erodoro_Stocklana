@@ -57,8 +57,10 @@ async function shoot(name, route, prepare) {
     } catch {}
   });
   await installChainFixture(context, FIXTURE, "replay");
+  await context.routeWebSocket(/.*/, (socket) => socket.close());
 
   const page = await context.newPage();
+  await page.clock.setFixedTime(new Date("2026-09-14T18:00:00Z"));
   await page.goto(`${BASE}${route}`, { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(2_000);
   if (prepare) await prepare(page);
@@ -74,6 +76,7 @@ async function shoot(name, route, prepare) {
 console.log("capturing:");
 
 await shoot("terminal", "/app", async (page) => {
+  await page.getByLabel("Rank by").selectOption("expiry");
   const row = page.locator('tr[data-tour="series-card"]').first();
   await row.waitFor({ state: "visible", timeout: 15_000 });
   await row.click();

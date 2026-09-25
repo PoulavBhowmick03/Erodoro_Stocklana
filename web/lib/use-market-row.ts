@@ -23,6 +23,8 @@ export type MarketRowMetrics = {
   spot: number | null;
   distancePct: number | null;
   bestBid: number | null;
+  bestBidSize: number | null;
+  bookState: "loading" | "ready" | "unavailable";
   bestAsk: number | null;
   premiumPct: number | null;
   volume24h: null;
@@ -44,22 +46,37 @@ export function useMarketRowMetrics(
 ): MarketRowMetrics {
   const { connection: l1 } = useConnection();
   const { connection: rollup } = useEphemeral();
-  const profile = marketProfileForCollateral(view.config.collateralMint.toBase58());
+  const profile = marketProfileForCollateral(
+    view.config.collateralMint.toBase58(),
+  );
   const feedId = useFeedId(profile ? undefined : view.config.oracleAdapter);
   const oracle = useOracleQuote(feedId);
   const marketAddress = useMemo(
-    () => manifestMarketPda(nMintPda(view.address), QUOTE_MINT, MANIFEST_PROGRAM_ID),
+    () =>
+      manifestMarketPda(
+        nMintPda(view.address),
+        QUOTE_MINT,
+        MANIFEST_PROGRAM_ID,
+      ),
     [view.address],
   );
   const { location } = useBookLocation(marketAddress, MANIFEST_PROGRAM_ID);
-  const [quotes, setQuotes] = useState<{ bid: number | null; ask: number | null }>({
+  const [bookState, setBookState] =
+    useState<MarketRowMetrics["bookState"]>("loading");
+  const [quotes, setQuotes] = useState<{
+    bid: number | null;
+    ask: number | null;
+    size: number | null;
+  }>({
     bid: null,
     ask: null,
+    size: null,
   });
 
   const loadBook = useCallback(async () => {
     if (location.kind !== "l1" && location.kind !== "rollup") {
-      setQuotes({ bid: null, ask: null });
+      setQuotes({ bid: null, ask: null, size: null });
+      setBookState(location.kind === "loading" ? "loading" : "unavailable");
       return;
     }
     try {
@@ -84,9 +101,15 @@ export function useMarketRowMetrics(
         })),
         "ask",
       );
-      setQuotes({ bid: bids[0]?.price ?? null, ask: asks[0]?.price ?? null });
+      setQuotes({
+        bid: bids[0]?.price ?? null,
+        ask: asks[0]?.price ?? null,
+        size: bids[0]?.size ?? null,
+      });
+      setBookState("ready");
     } catch {
-      setQuotes({ bid: null, ask: null });
+      setQuotes({ bid: null, ask: null, size: null });
+      setBookState("unavailable");
     }
   }, [l1, location.kind, marketAddress, rollup]);
 
@@ -96,25 +119,35 @@ export function useMarketRowMetrics(
     return () => window.clearInterval(timer);
   }, [loadBook]);
 
-  const settlementSpot = oracle.state.kind === "ready"
-    ? Number(fromRaw(oracle.state.quote.price, oracle.state.quote.decimals, oracle.state.quote.decimals))
-    : null;
+  const settlementSpot =
+    oracle.state.kind === "ready"
+      ? Number(
+          fromRaw(
+            oracle.state.quote.price,
+            oracle.state.quote.decimals,
+            oracle.state.quote.decimals,
+          ),
+        )
+      : null;
   const spot = realtimeSpot ?? settlementSpot;
-  const strike = Number(fromRaw(
-    view.config.strike,
-    view.config.priceDecimals,
-    view.config.priceDecimals,
-  ));
+  const strike = Number(
+    fromRaw(
+      view.config.strike,
+      view.config.priceDecimals,
+      view.config.priceDecimals,
+    ),
+  );
   const distancePct = spot && spot > 0 ? ((strike - spot) / spot) * 100 : null;
   const executable = intent === "seller" ? quotes.bid : quotes.ask;
-  const premiumPct = spot && spot > 0 && executable !== null
-    ? (executable / spot) * 100
-    : null;
+  const premiumPct =
+    spot && spot > 0 && executable !== null ? (executable / spot) * 100 : null;
 
   return {
     spot,
     distancePct,
     bestBid: quotes.bid,
+    bestBidSize: quotes.size,
+    bookState,
     bestAsk: quotes.ask,
     premiumPct,
     volume24h: null,

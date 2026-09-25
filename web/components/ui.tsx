@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useId, useRef, useState } from "react";
 import type { PublicKey } from "@solana/web3.js";
 import type { SendState } from "@/lib/use-send";
 import { sendPhaseLabel } from "@/lib/transaction-lifecycle";
@@ -160,8 +160,9 @@ function Input({
   onSubmit,
   autoFocus,
 }: InputProps) {
+  const id = useId();
   return (
-    <label className="block">
+    <label htmlFor={id} className="block">
       <span className="mb-1.5 flex items-baseline justify-between gap-2">
         <span className="text-dim text-[0.8125rem] tracking-[0.1em] uppercase">{label}</span>
         {note && <span className="text-dim font-mono text-[0.75rem]">{note}</span>}
@@ -183,6 +184,7 @@ function Input({
         }`}
       >
         <input
+          id={id}
           inputMode={inputMode ?? "text"}
           value={value}
           placeholder={placeholder}
@@ -277,7 +279,7 @@ export function Tabs<T extends string>({
   label?: string;
 }) {
   return (
-    <div className="border-line flex overflow-x-auto border-b" role="tablist" aria-label={label}>
+    <div className="border-line flex flex-wrap border-b" role="tablist" aria-label={label}>
       {options.map((option) => {
         const active = option.value === value;
         return (
@@ -493,6 +495,7 @@ export function AddressLink({
 
 export function Panel({
   title,
+  heading: Heading = "h3",
   subtitle,
   children,
   tour,
@@ -500,6 +503,7 @@ export function Panel({
   flush = false,
 }: {
   title: string;
+  heading?: "h2" | "h3";
   subtitle?: string;
   children: React.ReactNode;
   /** Anchor for the guided walkthrough. See `components/tour.tsx`. */
@@ -515,7 +519,7 @@ export function Panel({
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 className="text-xl font-medium tracking-[-0.025em]">{title}</h3>
+          <Heading className="text-xl font-medium tracking-[-0.025em]">{title}</Heading>
           {subtitle && <p className="text-muted mt-1 max-w-[62ch] text-[0.85rem] leading-6">{subtitle}</p>}
         </div>
         {actions}

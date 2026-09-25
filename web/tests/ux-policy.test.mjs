@@ -216,9 +216,9 @@ test("canonical navigation separates markets, portfolio, demo setup and admin", 
   const legacy = fs.readFileSync(new URL("../components/legacy-admin-redirect.tsx", import.meta.url), "utf8");
   const portfolio = fs.readFileSync(new URL("../app/portfolio/page.tsx", import.meta.url), "utf8");
 
-  assert.match(chrome, /\["\/app", "Markets"\]/);
-  assert.match(chrome, /\["\/portfolio", "Portfolio"\]/);
-  assert.match(chrome, />\s*Create demo assets\s*<\/Link>[\s\S]{0,100}<TourButton \/>/);
+  assert.match(chrome, /href: "\/app", label: "Markets"/);
+  assert.match(chrome, /href: "\/portfolio", label: "Portfolio"/);
+  assert.match(chrome, /href: "\/faucet", label: "Get test assets"/);
   assert.match(chrome, /function WalletMenu[\s\S]*?>\s*Select wallet\s*<\/summary>[\s\S]*?<TestWalletBar/);
   assert.doesNotMatch(chrome, /Devnet tools/);
   assert.doesNotMatch(chrome, />\s*Demo setup\s*</);
@@ -281,11 +281,11 @@ test("strategy, hierarchy, and market discovery stay decision-first", () => {
     terminal.indexOf("<ManifestBookPanel") < terminal.indexOf("data-market-education"),
     "trading workspace must precede education",
   );
-  for (const label of ["Market", "Spot", "Distance", "Bid / Ask", "Premium", "Status"]) {
-    assert.match(markets, new RegExp(`>${label}<`));
+  for (const label of ["Market", "Reference", "Strike", "Distance", "Expiry", "Best bid", "Bid size", "Status"]) {
+    assert.ok(markets.includes(`"${label}"`), `discovery includes ${label}`);
   }
-  assert.match(markets, /label="Strike"/);
-  assert.match(markets, /label="Expiry"/);
+  assert.match(markets, /aria-label="Stock"/);
+  assert.match(markets, /label="Expiry window"/);
   // Volume stays disclosed, but as one footnote rather than a column holding a
   // "—" on every row for a figure that cannot exist without an indexer.
   assert.doesNotMatch(markets, />24h volume</);
@@ -365,7 +365,7 @@ test("public header is focused and verifiable market details are present", () =>
   const oracle = fs.readFileSync(new URL("../components/oracle-panel.tsx", import.meta.url), "utf8");
   const ui = fs.readFileSync(new URL("../components/ui.tsx", import.meta.url), "utf8");
 
-  for (const label of ["Try devnet"]) {
+  for (const label of ["Built on Solana"]) {
     assert.match(nav, new RegExp(`>\\s*${label}\\s*<`));
   }
   for (const label of ["Product", "How it works", "Risks", "Docs", "GitHub"]) {

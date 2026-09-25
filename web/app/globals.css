@@ -202,10 +202,10 @@
   }
 
   /*
-    The app header is sticky and the phone keeps a fixed trade bar at the
-    bottom, so anything scrolled to programmatically -- by the guide, by an
-    anchor, by a browser restoring focus -- has to clear both. Without this it
-    lands underneath the header, where it is visible but cannot be clicked.
+    The app header is sticky, so anything scrolled to programmatically -- by
+    the guide, by an anchor, by a browser restoring focus -- has to clear it.
+    Without this it lands underneath the header, where it is visible but
+    cannot be clicked.
   */
   button,
   a,
@@ -252,7 +252,7 @@
     color: color-mix(in oklab, var(--color-bg) 80%, transparent);
   }
   .ink-band .text-dim,
-  /* `.kicker` is 11px, so it needs the 4.5:1 alpha rather than the large-text
+  /* `.kicker` is 10px, so it needs the 4.5:1 alpha rather than the large-text
      one -- which is what `.text-dim` was already tuned to. */
   .ink-band .kicker {
     color: color-mix(in oklab, var(--color-bg) 66%, transparent);
@@ -298,13 +298,13 @@
 
   /*
     The editorial scope.
-  
+
     The landing page reads as a broadsheet: a Caslon for display, a text serif
     for reading, a mono for the technical labels. The application keeps Geist,
-    because a serif at 13px in a dense order book buys atmosphere and costs
+    because a serif at 13px in a dense markets table buys atmosphere and costs
     legibility. Scoping it to a class rather than swapping `--font-sans`
     globally is what keeps that line drawn in exactly one place.
-  
+
     Shapes are square throughout. Not a preference -- a rounded corner reads as
     software chrome, and the whole point of this page is to read as print.
   */
@@ -321,18 +321,14 @@
     border-radius: 0;
   }
 
-  /* Display type. The landing headline had been capped at Tailwind's text-7xl,
-     which is the size a section heading wants, not the size the one sentence a
-     visitor actually reads wants. `clamp` rather than breakpoints so the step
-     between 390px and 1440px is continuous instead of jumping twice. */
   /*
-    The wordmark set into the hero photograph.
+    The wordmark set into the hero image.
 
     `difference` alone, with no second blend on the glyphs: it inverts against
     whatever it happens to sit on, so the word stays legible over the bright
     grid paper and the dark engraving without either a scrim or a second
-    colour for the dark theme. Layering `overlay` on top of it -- which is
-    where this started -- flattened it to almost nothing over the light half.
+    colour for the dark theme. Layering `overlay` on top of it flattens it to
+    almost nothing over the light half.
   */
   .hero-wordmark {
     font-family: var(--font-editorial), Georgia, serif;
@@ -344,6 +340,8 @@
     color: #fff;
   }
 
+  /* Display type. `clamp` rather than breakpoints so the step between 390px
+     and 1440px is continuous instead of jumping twice. */
   .display-1 {
     font-family: var(--font-editorial), Georgia, serif;
     font-size: clamp(2.4rem, 5.6vw, 4.75rem);
@@ -399,10 +397,10 @@
     for exactly the people least able to afford that.
   */
   .reveal > * {
-    /* Both ends are variables so one keyframe serves every background. The
-       audit caught why this matters: inside `.ink-band` the page's muted tone
-       is dark ink on a dark band -- 2.43:1, unreadable until it happened to
-       animate. A word that has not resolved yet still has to be legible. */
+    /* Both ends are variables so one keyframe serves every background: inside
+       `.ink-band` the page's muted tone is dark ink on a dark band -- 2.43:1,
+       unreadable until it happened to animate. A word that has not resolved
+       yet still has to be legible. */
     --reveal-from: var(--color-muted);
     --reveal-to: var(--color-text);
     color: var(--reveal-from);

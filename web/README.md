@@ -2,16 +2,39 @@
 
 Next.js 16 (App Router, Turbopack) + Tailwind 4.
 
-- `/` — landing page. Static, no wallet, no RPC.
-- `/app` — the protocol app. Wallet connection and on-chain reads.
+The visual UI is adapted from `erodoro-base` (source revision `6a09954`).
+Wallets, canonical market discovery, Manifest orders, Pyth settlement and
+MagicBlock execution remain Solana integrations.
 
-Both prerender as static, so the whole thing deploys to any static host.
+- `/` — editorial landing page and live strategy discovery.
+- `/earn` — stock, listed terms and premium selection; hands a draft to the
+  existing Solana trading ticket for review.
+- `/app`, `/trade/markets` — market filters, favorites and the live order book.
+- `/portfolio` — positions, open orders, execution balances and wallet tokens.
+- `/faucet` — the existing devnet asset workflow in the copied page layout.
+- `/auctions`, `/swap`, `/market-rip`, `/rewards` — copied presentation with
+  explicit unavailable/inactive states. There are no corresponding Solana
+  auction, swap, Rip or rewards integrations; these pages cannot submit those
+  actions. `/buy` and `/sell` redirect to the appropriate swap view.
+
+The app prerenders to `out/` for static hosting. No contract deployment is
+required by this UI change.
 
 ```sh
 pnpm install
-pnpm dev            # http://localhost:3000
-pnpm build && pnpm start
+pnpm dev                 # http://localhost:3000
+pnpm build               # produces out/
+pnpm test:unit
+pnpm test:tour
+pnpm test:flows
+pnpm test:ui-copy         # nine routes, both themes, mobile and desktop
 ```
+
+If the environment prevents Turbopack's internal worker from binding a port,
+run `pnpm prebuild && pnpm exec next build --webpack`. Browser suites serve
+`out/` locally and replay recorded Solana responses, including the Cloudflare
+RPC proxy. They pin the recorded date so expired fixtures stay deterministic.
+`SHOTS=/tmp/erodoro-ui-shots pnpm test:ui-copy` saves screenshots.
 
 ## Configuration
 

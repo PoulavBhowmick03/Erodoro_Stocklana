@@ -1,554 +1,520 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useConnection } from "@solana/wallet-adapter-react";
-import { getTokenMetadata } from "@solana/spl-token";
+import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useSeries } from "@/lib/use-series";
-import type { SeriesView } from "@/lib/series-types";
 import { useFavourites } from "@/lib/use-favourites";
-import { formatDate, priceToUsd, shortKey, statusOf, timeUntil } from "@/lib/format";
-import { ACTIVE_ISSUER } from "@/lib/issuers";
-import { IS_DEVNET } from "@/lib/network-config";
-import { useMarketRowMetrics } from "@/lib/use-market-row";
-import { DEVNET_MARKET_PROFILE, marketProfileForCollateral } from "@/lib/market-profile";
-import { useMagicBlockPrice } from "@/lib/use-magicblock-price";
+import { formatDate, priceToUsd, timeUntil } from "@/lib/format";
+import {
+  annualizedPremium,
+  marketAsset,
+  marketStatus,
+} from "@/lib/market-presentation";
+import type { SeriesView } from "@/lib/series-types";
+import type { MarketRowMetrics } from "@/lib/use-market-row";
 import type { Role } from "./role-toggle";
+import { MarketMetrics } from "./market-metrics";
 import { Button, EmptyState, Segmented } from "./ui";
 
-/** Which slice of the registry is on screen. */
-type Tab = "active" | "matured" | "starred";
+const selectClass =
+  "border-line bg-panel focus:border-accent w-full rounded-sm border px-3 py-1.5 text-[0.85rem] outline-none";
+const dollars = (n: number | null | undefined) =>
+  n == null ? "—" : `$${n.toFixed(2)}`;
 
-/** Sortable columns. */
-type SortKey = "expiry" | "strike";
-type Sort = { key: SortKey; dir: "asc" | "desc" };
-
-/**
- * A series is "new" if it is among the last few the factory registered.
- * `SeriesRecord.index` is creation order, which is the only thing on chain
- * that can answer this.
- */
-export function MarketsTable({ onOpen, intent }: { onOpen: (address: string) => void; intent: Role }) {
-  const { connection } = useConnection();
+/** Base's discovery layout using canonical Solana series and Manifest quotes. */
+export function MarketsTable({
+  onOpen,
+  intent,
+}: {
+  onOpen: (address: string) => void;
+  intent: Role;
+}) {
   const { state, reload } = useSeries();
-  const { has, toggle } = useFavourites();
-  const [tab, setTab] = useState<Tab>("active");
+  const params = useSearchParams();
+  const fav = useFavourites();
+  const [tab, setTab] = useState("active");
   const [query, setQuery] = useState("");
-  const [sort, setSort] = useState<Sort>({ key: "expiry", dir: "asc" });
-  const realtime = useMagicBlockPrice(IS_DEVNET ? DEVNET_MARKET_PROFILE.realtime : null);
-  const realtimeSpot = realtime.state.kind === "ready" ? realtime.state.price : null;
-
-  const all = state.kind === "ready" ? state.series : [];
-  const [mintLabels, setMintLabels] = useState<Record<string, { name: string; symbol: string }>>({});
-
+  const [stock, setStock] = useState(params.get("stock") ?? "all");
+  const [expiry, setExpiry] = useState("all");
+  const [distance, setDistance] = useState("all");
+  const [bid, setBid] = useState("all");
+  const [sort, setSort] = useState("opportunity");
+  const [now, setNow] = useState(0);
+  const [metrics, setMetrics] = useState<Record<string, MarketRowMetrics>>({});
+  const receive = useCallback(
+    (id: string, next: MarketRowMetrics) =>
+      setMetrics((current) => ({ ...current, [id]: next })),
+    [],
+  );
   useEffect(() => {
-    let live = true;
-    const mints = [...new Set(all.map((view) => view.config.collateralMint.toBase58()))]
-      .filter((mint) => !mintLabels[mint]);
-    if (!mints.length) return;
-    void Promise.all(
-      mints.map(async (mint) => {
-        const issuerAsset = ACTIVE_ISSUER.asset(mint);
-        if (issuerAsset) {
-          return [mint, { name: issuerAsset.name, symbol: issuerAsset.symbol }] as const;
-        }
-        const address = all.find((view) => view.config.collateralMint.toBase58() === mint)!.config.collateralMint;
-        const metadata = await getTokenMetadata(connection, address).catch(() => null);
-        const profile = marketProfileForCollateral(mint);
-        return [mint, {
-          name: profile?.name || metadata?.name?.trim() || "Unknown collateral",
-          symbol: profile?.symbol || metadata?.symbol?.trim() || "UNKNOWN",
-        }] as const;
+    setNow(Date.now() / 1000);
+    const timer = setInterval(() => setNow(Date.now() / 1000), 15000);
+    return () => clearInterval(timer);
+  }, []);
+  const all = state.kind === "ready" ? state.series : [];
+  const active = (s: SeriesView) =>
+    ["Open", "Paused"].includes(marketStatus(s, now));
+  const stocks = [
+    ...new Map(
+      all.map((s) => {
+        const a = marketAsset(s);
+        return [a.mint, a] as const;
       }),
-    ).then((entries) => {
-      if (live) setMintLabels((current) => ({ ...current, ...Object.fromEntries(entries) }));
-    });
-    return () => { live = false; };
-  }, [all, connection, mintLabels]);
-
-  const rows = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const filtered = all.filter((s) => {
-      const status = statusOf(s.config.status);
-      const expired = s.config.maturityTs.toNumber() <= Math.floor(Date.now() / 1000);
-      if (tab === "active" && (status === "Settled" || expired)) return false;
-      if (tab === "matured" && status !== "Settled" && !expired) return false;
-      if (tab === "starred" && !has(s.address.toBase58())) return false;
-      if (!q) return true;
-      // Search the things a person would actually type: the strike, the series
-      // address, or the collateral they are looking to lock up.
+    ).values(),
+  ];
+  const rows = all
+    .filter((s) => {
+      const id = s.address.toBase58(),
+        a = marketAsset(s),
+        m = metrics[id];
+      if (
+        (tab === "active" && !active(s)) ||
+        (tab === "matured" && active(s)) ||
+        (tab === "starred" && !fav.has(id))
+      )
+        return false;
+      if (stock !== "all" && a.mint !== stock) return false;
+      const remaining = s.config.maturityTs.toNumber() - now;
+      if (
+        expiry !== "all" &&
+        (remaining <= 0 || remaining > Number(expiry) * 86400)
+      )
+        return false;
+      if (bid === "live" && (m?.bookState !== "ready" || m.bestBid === null))
+        return false;
+      if (bid === "none" && (m?.bookState !== "ready" || m.bestBid !== null))
+        return false;
+      if (distance !== "all") {
+        const d = m?.distancePct;
+        if (
+          d == null ||
+          (distance === "0-10" && (d < 0 || d > 10)) ||
+          (distance === "10-20" && (d < 10 || d > 20)) ||
+          (distance === "20+" && d < 20)
+        )
+          return false;
+      }
+      return `${a.symbol} ${a.name} ${a.mint} ${id} ${priceToUsd(s.config.strike, s.config.priceDecimals)}`
+        .toLowerCase()
+        .includes(query.trim().toLowerCase());
+    })
+    .sort((a, b) => {
+      if (sort === "expiry")
+        return a.config.maturityTs.cmp(b.config.maturityTs);
+      if (sort === "strike")
+        return (
+          Number(a.config.strike.toString()) / 10 ** a.config.priceDecimals -
+          Number(b.config.strike.toString()) / 10 ** b.config.priceDecimals
+        );
+      if (sort === "premium")
+        return (
+          (metrics[b.address.toBase58()]?.bestBid ?? -1) -
+          (metrics[a.address.toBase58()]?.bestBid ?? -1)
+        );
       return (
-        priceToUsd(s.config.strike, s.config.priceDecimals).toLowerCase().includes(q) ||
-        s.address.toBase58().toLowerCase().includes(q) ||
-        s.config.collateralMint.toBase58().toLowerCase().includes(q) ||
-        mintLabels[s.config.collateralMint.toBase58()]?.name.toLowerCase().includes(q) ||
-        mintLabels[s.config.collateralMint.toBase58()]?.symbol.toLowerCase().includes(q)
+        (annualizedPremium(b, metrics[b.address.toBase58()], now) ?? -1) -
+        (annualizedPremium(a, metrics[a.address.toBase58()], now) ?? -1)
       );
     });
-
-    const dir = sort.dir === "asc" ? 1 : -1;
-    return [...filtered].sort((a, b) => {
-      if (sort.key === "strike") {
-        return a.config.strike.cmp(b.config.strike) * dir;
-      }
-      return (a.config.maturityTs.toNumber() - b.config.maturityTs.toNumber()) * dir;
-    });
-  }, [all, tab, query, sort, has, mintLabels]);
-
-  if (state.kind === "loading") {
-    return (
-      <div className="space-y-2">
-        {[0, 1, 2].map((i) => (
-          <div key={i} className="border-line bg-panel h-14 animate-pulse rounded-lg border" />
-        ))}
-      </div>
-    );
-  }
-
-  if (state.kind === "undeployed") {
-    return (
-      <Empty
-        title="Not deployed on this network"
-        body="The markets this page reads are not on this cluster. Switch networks, or deploy them."
-        onRetry={reload}
-      />
-    );
-  }
-
-  if (state.kind === "error") {
-    return (
-      <Empty
-        title="Could not reach the network"
-        body={<span className="font-mono text-[0.85rem]">{state.message}</span>}
-        onRetry={reload}
-      />
-    );
-  }
-
   const counts = {
-    active: all.filter((s) => statusOf(s.config.status) !== "Settled" && s.config.maturityTs.toNumber() > Math.floor(Date.now() / 1000)).length,
-    matured: all.filter((s) => statusOf(s.config.status) === "Settled" || s.config.maturityTs.toNumber() <= Math.floor(Date.now() / 1000)).length,
-    starred: all.filter((s) => has(s.address.toBase58())).length,
+    active: all.filter(active).length,
+    matured: all.filter((s) => !active(s)).length,
+    starred: all.filter((s) => fav.has(s.address.toBase58())).length,
   };
-
   return (
     <div>
+      {all.map((view) => (
+        <MarketMetrics
+          key={view.address.toBase58()}
+          view={view}
+          onMetrics={receive}
+        />
+      ))}
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <Segmented
           label="Market lifecycle"
           value={tab}
           onChange={setTab}
-          options={(["active", "matured", "starred"] as Tab[]).map((t) => ({
-            value: t,
+          options={Object.entries(counts).map(([value, count]) => ({
+            value,
             label: (
               <span className="capitalize">
-                {t}
-                <span className="ml-1.5 font-mono text-[0.75rem] opacity-60">{counts[t]}</span>
+                {value}
+                <span className="ml-1.5 font-mono text-[0.75rem] opacity-60">
+                  {count}
+                </span>
               </span>
             ),
           }))}
         />
-
-        <div className="border-line bg-panel focus-within:border-accent hover:border-muted flex min-w-[16rem] flex-1 items-center gap-2 rounded-sm border px-3 transition-colors">
-          <SearchIcon />
+        <div className="border-line bg-panel focus-within:border-accent flex min-w-0 basis-full flex-1 items-center gap-2 rounded-sm border px-3 sm:basis-0">
+          <span aria-hidden className="text-dim">
+            ⌕
+          </span>
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search strike, underlying, or series address"
+            placeholder="Search strike, underlying, or token address"
             aria-label="Search markets"
-            className="placeholder:text-dim/70 w-full bg-transparent py-1.5 text-[0.85rem] outline-none"
+            className="placeholder:text-dim/70 min-w-0 w-full bg-transparent py-1.5 text-[0.85rem] outline-none"
           />
           {query && (
             <button
               type="button"
               onClick={() => setQuery("")}
               aria-label="Clear search"
-              className="text-dim hover:text-text shrink-0 text-sm transition-colors"
             >
-              ✕
+              ×
             </button>
           )}
         </div>
       </div>
-
-      {rows.length === 0 ? (
-        <EmptyRows tab={tab} query={query} total={all.length} onRetry={reload} />
-      ) : (
-        <>
-        <div className="grid gap-2 md:hidden">
-          {rows.map((s) => (
-            <MarketCard
-              key={s.address.toBase58()}
-              view={s}
-              label={mintLabels[s.config.collateralMint.toBase58()]}
-              intent={intent}
-              starred={has(s.address.toBase58())}
-              onStar={() => toggle(s.address.toBase58())}
-              onOpen={() => onOpen(s.address.toBase58())}
-            />
-          ))}
-        </div>
-        <div className="border-line bg-panel hidden overflow-x-auto border-y md:block">
-          <table className="w-full min-w-[62rem] border-collapse text-left">
-            <thead>
-              <tr className="border-line-soft text-dim border-b text-[0.8125rem] tracking-wide uppercase">
-                <th className="px-3 py-2.5 font-normal">Market</th>
-                <th className="px-3 py-2.5 text-right font-normal">Spot</th>
-                <Header
-                  label="Strike"
-                  active={sort.key === "strike"}
-                  dir={sort.dir}
-                  onClick={() => setSort(flip(sort, "strike"))}
-                />
-                <th className="px-3 py-2.5 text-right font-normal">Distance</th>
-                <Header
-                  label="Expiry"
-                  active={sort.key === "expiry"}
-                  dir={sort.dir}
-                  onClick={() => setSort(flip(sort, "expiry"))}
-                />
-                <th className="px-3 py-2.5 text-right font-normal">Bid / Ask</th>
-                <th className="px-3 py-2.5 text-right font-normal">Premium</th>
-                <th className="px-3 py-2.5 font-normal">Status</th>
-                <th className="px-3 py-2.5 font-normal">
-                  <span className="sr-only">Open market</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((s) => (
-                <Row
-                  key={s.address.toBase58()}
-                  view={s}
-                  label={mintLabels[s.config.collateralMint.toBase58()]}
-                  intent={intent}
-                  realtimeSpot={realtimeSpot}
-                  starred={has(s.address.toBase58())}
-                  onStar={() => toggle(s.address.toBase58())}
-                  onOpen={() => onOpen(s.address.toBase58())}
-                />
-              ))}
-            </tbody>
-          </table>
-        </div>
-        {/* Manifest stores the live book but no durable fill history, so there
-            is no 24-hour volume to report. It used to be a column, which meant
-            every row carried a permanent "—" and the table read as broken.
-            Saying it once, here, is the same disclosure without the noise. */}
-        <p className="text-dim mt-3 text-[0.75rem]">
-          Bid and ask are live. 24-hour fill volume is not shown: it needs a
-          trade-history indexer, which this deployment does not run yet.
-        </p>
-        </>
-      )}
-    </div>
-  );
-}
-
-function SearchIcon() {
-  return (
-    <svg viewBox="0 0 16 16" className="text-dim size-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
-      <circle cx="7" cy="7" r="4.4" />
-      <path d="m10.4 10.4 3.1 3.1" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-/**
- * The same row, for a viewport a nine-column table does not fit on.
- *
- * The table used to be the only rendering, inside a horizontal scroller with a
- * 62rem minimum. On a phone that meant the status of a market lived four
- * swipes to the right of its name, which is the same as not showing it.
- */
-function MarketCard({
-  view,
-  label,
-  intent,
-  starred,
-  onStar,
-  onOpen,
-}: {
-  view: SeriesView;
-  label?: { name: string; symbol: string };
-  intent: Role;
-  starred: boolean;
-  onStar: () => void;
-  onOpen: () => void;
-}) {
-  const { config, address } = view;
-  const status = statusOf(config.status);
-  const maturity = config.maturityTs.toNumber();
-  const expired = status !== "Settled" && maturity <= Math.floor(Date.now() / 1000);
-  const displayStatus = status === "Settled" ? "Redeemable" : expired ? "Awaiting settlement" : status;
-  const metrics = useMarketRowMetrics(view, intent);
-
-  return (
-    /*
-      A card, not a button.
-      
-      It used to be a <button> with the star control nested inside it, which is
-      invalid: a control inside a control has no defined activation behaviour,
-      and a screen reader announces one thing while two are reachable. The card
-      is now inert markup; the market name is the control, stretched across the
-      card so clicking anywhere still opens it, and the star sits above that
-      overlay as an ordinary sibling.
-    */
-    <div
-      data-tour="series-card"
-      className="border-line bg-panel hover:border-text relative rounded-md border p-3 transition-colors"
-    >
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <button
-            type="button"
-            onClick={onOpen}
-            className="text-left before:absolute before:inset-0 before:content-['']"
+      <div className="border-line-soft mb-5 grid items-end gap-3 border-b pb-4 sm:flex sm:flex-wrap">
+        <label className="w-full sm:w-auto sm:min-w-[11rem]">
+          <FilterLabel>Stock</FilterLabel>
+          <select
+            aria-label="Stock"
+            value={stock}
+            onChange={(e) => setStock(e.target.value)}
+            className={selectClass}
           >
-            <span className="block font-medium">{label?.symbol || "DEMO"} / USDC</span>
-            <span className="text-dim mt-0.5 block font-mono text-[0.75rem]">
-              {shortKey(address, 4)}
-            </span>
-          </button>
+            <option value="all">All stocks</option>
+            {stocks.map((a) => (
+              <option key={a.mint} value={a.mint}>
+                {a.symbol} · {a.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="min-w-0 overflow-x-auto">
+          <FilterLabel>Expires within</FilterLabel>
+          <Segmented
+            label="Expiry window"
+            size="sm"
+            value={expiry}
+            onChange={setExpiry}
+            options={["all", "7", "14", "30", "60"].map((value) => ({
+              value,
+              label: value === "all" ? "All" : `${value}D`,
+            }))}
+          />
         </div>
-        <div className="relative z-10 flex items-center gap-2">
-          <StatusPill status={displayStatus} />
-          <button
-            type="button"
-            aria-label={starred ? "Unstar this market" : "Star this market"}
-            aria-pressed={starred}
-            onClick={onStar}
-            className={`leading-none ${starred ? "text-accent-ink" : "text-dim hover:text-muted"}`}
+        <div className="min-w-0 overflow-x-auto">
+          <FilterLabel>Sell-price distance</FilterLabel>
+          <Segmented
+            label="Sell-price distance"
+            size="sm"
+            value={distance}
+            onChange={setDistance}
+            options={[
+              { value: "all", label: "All" },
+              { value: "0-10", label: "0–10%" },
+              { value: "10-20", label: "10–20%" },
+              { value: "20+", label: "20%+" },
+            ]}
+          />
+        </div>
+        <label className="w-full sm:w-auto sm:min-w-[12rem]">
+          <FilterLabel>Rank by</FilterLabel>
+          <select
+            aria-label="Rank by"
+            value={sort}
+            onChange={(e) => setSort(e.target.value)}
+            className={selectClass}
           >
-            {starred ? "★" : "☆"}
-          </button>
+            <option value="opportunity">Highest annualized premium</option>
+            <option value="premium">Highest cash premium</option>
+            <option value="expiry">Shortest expiry</option>
+            <option value="strike">Lowest sell price</option>
+          </select>
+        </label>
+        <div className="min-w-0 overflow-x-auto">
+          <FilterLabel>Bid status</FilterLabel>
+          <Segmented
+            label="Bid status"
+            size="sm"
+            value={bid}
+            onChange={setBid}
+            options={[
+              { value: "all", label: "All" },
+              { value: "live", label: "Live bid" },
+              { value: "none", label: "No bid" },
+            ]}
+          />
         </div>
       </div>
-      <dl className="mt-3 grid grid-cols-3 gap-2 text-[0.8125rem]">
-        <div>
-          <dt className="text-dim text-[0.7rem] tracking-[0.08em] uppercase">Strike</dt>
-          <dd className="font-mono">{priceToUsd(config.strike, config.priceDecimals)}</dd>
+      {state.kind === "loading" || !now ? (
+        <div role="status" className="text-muted py-8 text-sm">
+          Loading markets…
         </div>
-        <div>
-          <dt className="text-dim text-[0.7rem] tracking-[0.08em] uppercase">Spot</dt>
-          <dd className="font-mono">
-            {metrics.spot === null ? "—" : `$${metrics.spot.toFixed(2)}`}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-dim text-[0.7rem] tracking-[0.08em] uppercase">Expiry</dt>
-          <dd>{status === "Settled" ? "—" : expired ? "Expired" : timeUntil(maturity)}</dd>
-        </div>
-      </dl>
+      ) : state.kind === "error" || state.kind === "undeployed" ? (
+        <EmptyState
+          title={
+            state.kind === "error"
+              ? "Could not load markets"
+              : "Not deployed on this network"
+          }
+          body={
+            state.kind === "error"
+              ? state.message
+              : "These contracts are not available on the selected Solana network."
+          }
+          action={<Button onClick={reload}>Try again</Button>}
+        />
+      ) : rows.length === 0 ? (
+        <EmptyState
+          title={all.length ? "No matching markets" : "No markets listed yet"}
+          body="Try another stock, expiry or bid filter, or check back when a new series is listed."
+        />
+      ) : (
+        <>
+          <div className="grid gap-2 md:hidden">
+            {rows.map((view) => (
+              <MarketDisplay
+                key={view.address.toBase58()}
+                view={view}
+                metrics={metrics[view.address.toBase58()]}
+                now={now}
+                card
+                intent={intent}
+                starred={fav.has(view.address.toBase58())}
+                onStar={() => fav.toggle(view.address.toBase58())}
+                onOpen={() => onOpen(view.address.toBase58())}
+              />
+            ))}
+          </div>
+          <div className="border-line bg-panel hidden overflow-x-auto border-y md:block">
+            <table className="w-full min-w-[74rem] border-collapse text-left">
+              <thead>
+                <tr className="border-line-soft text-dim border-b text-[0.8125rem] tracking-wide uppercase">
+                  {[
+                    "☆",
+                    "Market",
+                    "Reference",
+                    "Strike",
+                    "Distance",
+                    "Expiry",
+                    "Best bid",
+                    "Annualized*",
+                    "Bid size",
+                    "Status",
+                    "",
+                  ].map((name, i) => (
+                    <th
+                      key={i}
+                      className={`px-3 py-2.5 font-normal ${i > 1 && i < 9 ? "text-right" : ""}`}
+                    >
+                      {name || <span className="sr-only">Open market</span>}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((view) => (
+                  <MarketDisplay
+                    key={view.address.toBase58()}
+                    view={view}
+                    metrics={metrics[view.address.toBase58()]}
+                    now={now}
+                    intent={intent}
+                    starred={fav.has(view.address.toBase58())}
+                    onStar={() => fav.toggle(view.address.toBase58())}
+                    onOpen={() => onOpen(view.address.toBase58())}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-dim mt-3 text-[0.75rem] leading-5">
+            * Indicative simple annualized premium uses the current book bid,
+            reference price and remaining term. It assumes an unchanged token
+            multiplier and does not compound or include fees, dividends or
+            rewards. Prices and liquidity can change before execution.
+          </p>
+        </>
+      )}
+      <p className="text-dim mt-3 text-xs">
+        24h volume is unavailable without a trade-history indexer.
+      </p>
     </div>
   );
 }
 
-function flip(sort: Sort, key: SortKey): Sort {
-  if (sort.key !== key) return { key, dir: "asc" };
-  return { key, dir: sort.dir === "asc" ? "desc" : "asc" };
-}
-
-function Header({
-  label,
-  active,
-  dir,
-  onClick,
-}: {
-  label: string;
-  active: boolean;
-  dir: "asc" | "desc";
-  onClick: () => void;
-}) {
+function FilterLabel({ children }: { children: React.ReactNode }) {
   return (
-    <th className="px-3 py-2.5 font-normal">
-      <button
-        onClick={onClick}
-        className={`hover:text-muted inline-flex items-center gap-1 uppercase transition-colors ${
-          active ? "text-text" : ""
-        }`}
-      >
-        {label}
-        <span className={active ? "" : "opacity-0"}>{dir === "asc" ? "↑" : "↓"}</span>
-      </button>
-    </th>
+    <span className="text-dim mb-1.5 block text-[0.72rem] tracking-[0.08em] uppercase">
+      {children}
+    </span>
   );
 }
 
-function Row({
+function MarketDisplay({
   view,
-  label,
-  intent,
-  realtimeSpot,
+  metrics: m,
+  now,
   starred,
   onStar,
   onOpen,
+  card = false,
+  intent,
 }: {
   view: SeriesView;
-  label?: { name: string; symbol: string };
-  intent: Role;
-  realtimeSpot: number | null;
+  metrics?: MarketRowMetrics;
+  now: number;
   starred: boolean;
   onStar: () => void;
   onOpen: () => void;
+  card?: boolean;
+  intent: Role;
 }) {
-  const { config, address } = view;
-  const status = statusOf(config.status);
-  const maturity = config.maturityTs.toNumber();
-  const expired = status !== "Settled" && maturity <= Math.floor(Date.now() / 1000);
-  const displayStatus = status === "Settled" ? "Redeemable" : expired ? "Awaiting settlement" : status;
-  const metrics = useMarketRowMetrics(view, intent, realtimeSpot);
-  const money = (value: number | null) => value === null
+  const a = marketAsset(view),
+    status = marketStatus(view, now);
+  const ended = status === "Redeemable" || status === "Awaiting settlement";
+  const rate = annualizedPremium(view, m, now);
+  const expiry = ended
+    ? "Expired"
+    : timeUntil(view.config.maturityTs.toNumber());
+  const premium = ended
     ? "—"
-    : `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  const signed = (value: number | null) => value === null
-    ? "—"
-    : `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`;
-
+    : !m || m.bookState === "loading"
+      ? "Checking bids…"
+      : m.bookState === "unavailable"
+        ? "Unavailable"
+        : m.bestBid === null
+          ? "No live bid"
+          : `${m.bestBid.toFixed(2)} USDC`;
+  const star = (
+    <button
+      type="button"
+      aria-label={starred ? "Unstar this market" : "Star this market"}
+      data-tour-no-advance
+      onClick={(e) => {
+        e.stopPropagation();
+        onStar();
+      }}
+      onKeyDown={(e) => e.stopPropagation()}
+      className={starred ? "text-accent" : "text-dim"}
+    >
+      {starred ? "★" : "☆"}
+    </button>
+  );
+  const pill = (
+    <span
+      className={`inline-flex rounded-sm border px-2 py-0.5 text-xs ${status === "Open" ? "border-p/25 bg-p/8 text-p" : "border-line text-muted"}`}
+    >
+      {status}
+    </span>
+  );
+  if (card)
+    return (
+      <article className="border-line bg-panel rounded-md border p-3">
+        <div className="flex justify-between gap-2">
+          <button
+            type="button"
+            data-tour="series-card"
+            onClick={onOpen}
+            className="min-w-0 text-left"
+          >
+            <span className="block font-medium">{a.symbol} / USDC</span>
+            <span className="text-dim text-xs">{a.name}</span>
+          </button>
+          <div className="flex items-center gap-2">
+            {pill}
+            {star}
+          </div>
+        </div>
+        <dl className="mt-3 grid grid-cols-2 gap-3 text-[0.8125rem]">
+          {[
+            [
+              "Sell price",
+              priceToUsd(view.config.strike, view.config.priceDecimals),
+            ],
+            ["Reference", dollars(m?.spot)],
+            [
+              "Distance",
+              m?.distancePct == null ? "—" : `${m.distancePct.toFixed(1)}%`,
+            ],
+            ["Expiry", expiry],
+          ].map(([label, value]) => (
+            <div key={label}>
+              <dt className="text-dim text-[0.7rem] uppercase">{label}</dt>
+              <dd className="font-mono">{value}</dd>
+            </div>
+          ))}
+        </dl>
+        <div className="border-line-soft mt-3 flex justify-between gap-3 border-t pt-3">
+          <div>
+            <p className="text-dim text-xs">Best bid</p>
+            <p className="font-mono">{premium}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-dim text-xs">Annualized*</p>
+            <p className="font-mono">
+              {rate === null ? "—" : `${rate.toFixed(1)}%`}
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onOpen}
+          className="text-accent-ink mt-3 text-sm underline"
+        >
+          {ended
+            ? "View settlement"
+            : intent === "seller"
+              ? "Sell upside"
+              : "Buy upside"}{" "}
+          →
+        </button>
+      </article>
+    );
   return (
     <tr
       data-tour="series-card"
       tabIndex={0}
       role="link"
-      aria-label={`Open the ${label?.symbol || "DEMO"} market struck at ${priceToUsd(config.strike, config.priceDecimals)}, expiring ${formatDate(maturity)}`}
+      aria-label={`Open ${a.symbol} market`}
       onClick={onOpen}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          onOpen();
-        }
+      onKeyDown={(e) => {
+        if (e.key === "Enter") onOpen();
       }}
-      className="border-line-soft hover:bg-panel-2/70 group cursor-pointer border-b transition-colors last:border-b-0"
+      className="border-line-soft hover:bg-panel-2/60 focus-visible:outline-accent cursor-pointer border-b transition-colors focus-visible:outline-2"
     >
-      <td className="px-3 py-3">
-        <div className="flex items-center gap-3">
-          <button
-            aria-label={starred ? "Unstar this market" : "Star this market"}
-            onClick={(e) => {
-              e.stopPropagation();
-              onStar();
-            }}
-            className={`text-base leading-none transition-colors ${
-              starred ? "text-accent-ink" : "text-dim hover:text-muted"
-            }`}
-          >
-            {starred ? "★" : "☆"}
-          </button>
-          <div className="min-w-0">
-            <div className="text-text font-medium">
-              {label?.symbol || (IS_DEVNET ? DEVNET_MARKET_PROFILE.symbol : "UNKNOWN")} / USDC
-            </div>
-            {/* Two series can share a symbol, a strike and an expiry date, and
-                four of them did. Without the address the rows were literally
-                indistinguishable and picking one was a coin flip. */}
-            <div className="text-dim mt-0.5 flex items-center gap-1.5 text-[0.8125rem]">
-              <span>
-                {label?.name || (IS_DEVNET ? DEVNET_MARKET_PROFILE.name : "Unknown collateral")}
-              </span>
-              <span aria-hidden>·</span>
-              <span className="font-mono">{shortKey(address, 4)}</span>
-            </div>
-          </div>
-        </div>
+      <td className="px-2 py-3.5">{star}</td>
+      <td className="px-3 py-3.5">
+        <div className="font-medium">{a.symbol} / USDC</div>
+        <div className="text-dim mt-0.5 text-xs">{a.name}</div>
       </td>
-      <td className="px-3 py-3 text-right font-mono tabular-nums">{money(metrics.spot)}</td>
-      <td className="px-3 py-3 text-right font-mono tabular-nums">
-        {priceToUsd(config.strike, config.priceDecimals)}
+      <td className="px-3 py-3.5 text-right font-mono">{dollars(m?.spot)}</td>
+      <td className="px-3 py-3.5 text-right font-mono">
+        {priceToUsd(view.config.strike, view.config.priceDecimals)}
       </td>
-      <td className="px-3 py-3 text-right font-mono tabular-nums">{signed(metrics.distancePct)}</td>
-      <td className="px-3 py-3">
-        <div className="text-muted text-[0.8125rem]">{formatDate(maturity)}</div>
-        <div className="text-dim text-[0.8125rem]">{status === "Settled" ? "—" : expired ? "Expired" : timeUntil(maturity)}</div>
+      <td className="text-p px-3 py-3.5 text-right font-mono">
+        {m?.distancePct == null
+          ? "—"
+          : `${m.distancePct >= 0 ? "+" : ""}${m.distancePct.toFixed(1)}%`}
       </td>
-      <td className="px-3 py-3 text-right font-mono tabular-nums">
-        <span className="text-bid">{money(metrics.bestBid)}</span>
-        <span className="text-dim"> / </span>
-        <span className="text-ask">{money(metrics.bestAsk)}</span>
+      <td
+        title={formatDate(view.config.maturityTs.toNumber())}
+        className="px-3 py-3.5 text-right font-mono"
+      >
+        {expiry}
       </td>
-      <td className="px-3 py-3 text-right font-mono tabular-nums">{signed(metrics.premiumPct)}</td>
-      <td className="px-3 py-3">
-        <StatusPill status={displayStatus} />
+      <td className="px-3 py-3.5 text-right font-mono">{premium}</td>
+      <td className="px-3 py-3.5 text-right font-mono">
+        {rate === null ? "—" : `${rate.toFixed(1)}%`}
       </td>
-      <td className="px-3 py-3 text-right">
-        <span className="text-accent-ink text-[0.8125rem] opacity-0 transition-opacity group-hover:opacity-100">
-          Trade →
-        </span>
+      <td className="px-3 py-3.5 text-right font-mono">
+        {ended || m?.bestBidSize == null
+          ? "—"
+          : m.bestBidSize.toLocaleString(undefined, {
+              maximumFractionDigits: 4,
+            })}
+      </td>
+      <td className="px-3 py-3.5">{pill}</td>
+      <td aria-hidden className="px-3 py-3.5">
+        →
       </td>
     </tr>
-  );
-}
-
-function StatusPill({ status }: { status: string }) {
-  const tone =
-    status === "Open"
-      ? "text-accent-ink border-accent/30 bg-accent/10"
-      : status === "Settled"
-        ? "text-dim border-line bg-panel-2"
-        : "text-muted border-line bg-panel-2";
-  return (
-    <span
-      className={`rounded-sm border px-2 py-0.5 font-mono text-[0.8125rem] tracking-wide uppercase ${tone}`}
-    >
-      {status}
-    </span>
-  );
-}
-
-/**
- * An empty *filter* is a different problem from an empty *registry*, and the
- * fix is different too -- one is "clear your search", the other is "nothing
- * has been created yet".
- */
-function EmptyRows({
-  tab,
-  query,
-  total,
-  onRetry,
-}: {
-  tab: Tab;
-  query: string;
-  total: number;
-  onRetry: () => void;
-}) {
-  if (total === 0) {
-    return (
-      <Empty
-        title="No markets are listed yet"
-        body={IS_DEVNET
-          ? "Create demo assets and list the first devnet market."
-          : "No issuer-approved Mainnet markets have been listed yet."}
-        onRetry={onRetry}
-      />
-    );
-  }
-  const reason = query
-    ? "Try another strike, underlying address or expiry."
-    : tab === "starred"
-      ? "You have not starred anything yet. Use the star on a row to keep it here."
-      : tab === "matured"
-        ? "Nothing has settled yet."
-        : "Everything here has already settled. Try the matured tab.";
-  return (
-    <EmptyState
-      title={query ? "No matching markets" : tab === "starred" ? "Nothing starred" : "Nothing here"}
-      body={reason}
-    />
-  );
-}
-
-function Empty({
-  title,
-  body,
-  onRetry,
-}: {
-  title: string;
-  body: React.ReactNode;
-  onRetry: () => void;
-}) {
-  return (
-    <EmptyState
-      title={title}
-      body={body}
-      action={<Button onClick={onRetry}>Try again</Button>}
-    />
   );
 }

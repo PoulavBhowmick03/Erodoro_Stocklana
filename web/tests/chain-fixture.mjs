@@ -28,7 +28,7 @@ import crypto from "node:crypto";
 const FIXTURES = path.resolve("tests/fixtures");
 
 /** Endpoints worth intercepting. Everything else is served from `out/`. */
-const CHAIN_HOSTS = [/helius-rpc\.com/, /magicblock\.app/, /solana\.com/, /rpcpool\.com/];
+const CHAIN_HOSTS = [/helius-rpc\.com/, /magicblock\.app/, /solana\.com/, /rpcpool\.com/, /erodoro-protocol\.hypersettle\.workers\.dev\/rpc/];
 
 const isChainRequest = (url) => CHAIN_HOSTS.some((pattern) => pattern.test(url));
 
@@ -44,7 +44,12 @@ const OPAQUE_PARAMS = new Set(["sendTransaction", "simulateTransaction", "getFee
 
 /** A stable identity for a JSON-RPC call, ignoring the volatile id. */
 function keyFor(url, body) {
-  const host = new URL(url).host;
+  // Production now proxies the same devnet provider through Cloudflare. Keep
+  // replay compatible with the recordings from before that proxy existed.
+  const requestHost = new URL(url).host;
+  const host = requestHost === "erodoro-protocol.hypersettle.workers.dev"
+    ? "devnet.helius-rpc.com"
+    : requestHost;
   const calls = Array.isArray(body) ? body : [body];
   const summary = calls.map((call) => ({
     method: call?.method,
