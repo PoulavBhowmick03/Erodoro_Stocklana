@@ -156,6 +156,11 @@ make devnet    # oracle adapter against live Pyth on devnet
 make devnet-market  # the order book against the devnet deployment
 ```
 
+Current contract sizes, live rent estimates and the smaller Pinocchio builds are
+documented in [deployment costs](docs/deployment-costs.md). After `make variants`,
+run `pnpm deployment:cost` to quote the three core mainnet contracts at current
+RPC rent rates; the separately built Manifest fork is additional.
+
 ## Deployed
 
 Devnet — see [`deployments/devnet.json`](deployments/devnet.json):

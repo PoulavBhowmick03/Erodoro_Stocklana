@@ -35,7 +35,8 @@ solana-address = { version = "2.7", features = ["syscalls"] }
 overflow-checks = true
 lto = "fat"
 codegen-units = 1
-opt-level = "z"
+# With fat LTO, `s` emits fewer bytes than `z`; see docs/deployment-costs.md.
+opt-level = "s"
 
 [dev-dependencies]
 anchor-lang = "0.31.1"

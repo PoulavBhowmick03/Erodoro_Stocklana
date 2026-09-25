@@ -286,9 +286,13 @@ describe("oracle adapter, Pinocchio build, on a validator", () => {
 
   it("rotates the source, but only for the admin", async () => {
     const stranger = Keypair.generate();
-    await connection.confirmTransaction(
-      await connection.requestAirdrop(stranger.publicKey, 1_000_000_000),
-      "confirmed",
+    // Use the suite's funded payer and normal transaction confirmation path.
+    await send(
+      SystemProgram.transfer({
+        fromPubkey: payer.publicKey,
+        toPubkey: stranger.publicKey,
+        lamports: 1_000_000_000,
+      }),
     );
 
     const rotate = (signer: PublicKey, source: PublicKey) =>

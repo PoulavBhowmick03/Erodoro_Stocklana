@@ -237,9 +237,13 @@ describe("factory, Pinocchio build, on a validator", () => {
 
   it("pauses and unpauses, but only for the admin", async () => {
     const stranger = Keypair.generate();
-    await connection.confirmTransaction(
-      await connection.requestAirdrop(stranger.publicKey, 1_000_000_000),
-      "confirmed",
+    // Use the suite's funded payer and normal transaction confirmation path.
+    await send(
+      SystemProgram.transfer({
+        fromPubkey: payer.publicKey,
+        toPubkey: stranger.publicKey,
+        lamports: 1_000_000_000,
+      }),
     );
 
     const toggle = (disc: Buffer, signer: PublicKey) =>

@@ -1,5 +1,11 @@
 # Three builds of one program: what the framework costs
 
+> Current measurements: [deployment-costs.md](../docs/deployment-costs.md).
+> On 2026-09-19 RPC quoted 5,080 lamports/byte, and the three core
+> Pinocchio builds with `opt-level = "s"` total 152,400 bytes / 0.779327880 SOL
+> including Program accounts. The chronological figures below use older builds
+> and the former 6,960 rate; they are not the current deployment budget.
+
 Measured 2026-08-15. The program is `oracle-adapter` — 573 lines, four
 instructions, one PDA account, a Pyth decoder. It was chosen because it is the
 only program in this repo with no Token-2022 dependency, so it isolates the
