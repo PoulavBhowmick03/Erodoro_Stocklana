@@ -15,8 +15,6 @@ import {
   timeLeft,
   totalPaid,
   totalQty,
-  trackedQty,
-  untrackedQty,
   upsideAtExpiry,
   usd,
   type RipPosition,
@@ -35,10 +33,8 @@ const AMOUNTS = [1, 5, 20];
 function PayoffChart({ position, spot }: { position: RipPosition; spot: number | null }) {
   const qty = totalQty(position);
   const paid = totalPaid(position);
-  const tracked = trackedQty(position);
   const k = position.strike;
-  // Break-even only means something for claims whose cost is known.
-  const breakeven = tracked > 0 ? k + paid / tracked : null;
+  const breakeven = qty > 0 && paid > 0 ? k + paid / qty : null;
   const lo = Math.min(k * 0.88, (spot ?? k) * 0.97);
   const hi = Math.max((breakeven ?? k) * 1.08, k * 1.15, (spot ?? k) * 1.03);
   const W = 320;
@@ -104,11 +100,7 @@ export function RipDetail() {
   const paid = totalPaid(position);
   const qty = totalQty(position);
   const value = mark?.value ?? paid;
-  const tracked = trackedQty(position);
-  const elsewhere = untrackedQty(position);
-  const costKnown = tracked > 0;
-  const valueUnknown = mark?.marked === "cost" && !costKnown;
-  const change = pctChange(mark?.trackedValue ?? paid, paid);
+  const change = pctChange(value, paid);
   const spot = mark?.spot ?? null;
   const move = positionMove(position);
   const expired = position.expiryTs <= now;
@@ -157,24 +149,13 @@ export function RipDetail() {
         </div>
         <div className="mt-6 flex items-end justify-between gap-4">
           <div>
-            <p className="font-display text-5xl font-semibold tracking-[-0.05em] tabular-nums">{valueUnknown ? "—" : usd(value)}</p>
+            <p className="font-display text-5xl font-semibold tracking-[-0.05em] tabular-nums">{usd(value)}</p>
             <p className="mt-1 text-sm tabular-nums">
-              {costKnown ? (
-                <>
-                  <span className={change > 0.5 ? "text-p font-medium" : change < -0.5 ? "text-danger font-medium" : "text-muted"}>
-                    {signedPct(change)}
-                  </span>
-                  <span className="text-dim"> · paid {usd(paid)}</span>
-                </>
-              ) : (
-                <span className="text-dim">Cost unknown</span>
-              )}
+              <span className={change > 0.5 ? "text-p font-medium" : change < -0.5 ? "text-danger font-medium" : "text-muted"}>
+                {signedPct(change)}
+              </span>
+              <span className="text-dim"> · paid {usd(paid)}</span>
             </p>
-            {elsewhere > 1e-9 && (
-              <p className="text-dim mt-1 text-xs">
-                {elsewhere.toLocaleString("en-US", { maximumFractionDigits: 6 })} claims bought on another device · cost not known
-              </p>
-            )}
           </div>
           <p className={`text-right text-sm font-medium ${expired ? "text-accent-ink" : "text-muted"}`}>{timeLeft(position.expiryTs, now)}</p>
         </div>
@@ -195,8 +176,8 @@ export function RipDetail() {
               distance === null ? "—" : distance <= 0 ? "Already above" : `${distance.toFixed(1)}%`,
             ],
             ["Expires", `${shortDate(position.expiryTs)} · ${timeLeft(position.expiryTs, now)}`],
-            ["Paid", costKnown ? usd(paid) : "Unknown"],
-            ["Worth now", valueUnknown ? "Unknown (no bid)" : `${usd(value)}${mark?.marked === "cost" ? " (no bid)" : ""}`],
+            ["Paid", usd(paid)],
+            ["Worth now", `${usd(value)}${mark?.marked === "cost" ? " (no bid)" : ""}`],
           ].map(([k, v]) => (
             <div key={k} className="border-line/70 bg-panel rounded-2xl border px-4 py-3">
               <dt className="text-dim text-xs">{k}</dt>
@@ -300,7 +281,7 @@ export function RipDetail() {
           <dt className="text-dim">Quantity</dt>
           <dd className="tabular-nums">{qty.toLocaleString("en-US", { maximumFractionDigits: 9 })}</dd>
           <dt className="text-dim">Average price</dt>
-          <dd className="tabular-nums">{costKnown ? `${usd(paid / tracked, 6)} per claim` : "Unknown"}</dd>
+          <dd className="tabular-nums">{usd(paid / Math.max(qty, 1e-12), 6)} per claim</dd>
           <dt className="text-dim">Marked at</dt>
           <dd>
             {mark?.marked === "bid"
@@ -328,12 +309,11 @@ export function RipDetail() {
           {position.fills.map((f, i) => (
             <li key={`${f.at}-${i}`} className="flex items-center justify-between gap-3 py-2 tabular-nums">
               <span>
-                {f.kind === "untracked"
-                  ? `${f.qty.toLocaleString("en-US", { maximumFractionDigits: 6 })} claims held on chain, not bought in this browser`
-                  : `${f.kind === "rip" ? "Rip" : "Buy more"} · ${new Date(f.at).toLocaleString()}`}
+                {f.kind === "rip" ? "Rip" : "Buy more"} · {new Date(f.at).toLocaleString()}
+                {f.elsewhere && <span className="text-dim"> · another device</span>}
               </span>
               <span className="flex items-center gap-3">
-                {f.kind === "untracked" ? "cost unknown" : usd(f.paid)}
+                {usd(f.paid)}
                 {f.signature && (
                   <span className="text-dim font-mono text-xs" title="MagicBlock transaction signature">
                     {f.signature.slice(0, 6)}…

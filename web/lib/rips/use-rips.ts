@@ -29,16 +29,17 @@ import { describeSeries, loadLiveBook, lotFromBook, type LiveBook } from "./live
 import {
   addFill,
   fillFromAsks,
-  reconcile,
+  mergeLive,
   totalPaid,
   totalQty,
-  trackedQty,
-  type Holding,
+  type ChainFill,
   type PoolLot,
   type RipFill,
   type RipPosition,
   type RipSource,
+  type SeriesInfo,
 } from "./model";
+import { loadRipPurchases, type ChainPurchase } from "./history";
 import { positionsKey, useDemoConsumed, useStoredPositions } from "./store";
 
 const nowSecs = () => Math.floor(Date.now() / 1000);
@@ -148,16 +149,7 @@ export function useRipPositions(mode: RipSource) {
   return { ...useStoredPositions(key), signer };
 }
 
-/**
- * What a position is worth now. `value` covers every claim held; `trackedValue`
- * covers only claims whose cost is known, and is what gain/loss is measured on.
- */
-export type Mark = {
-  value: number;
-  trackedValue: number;
-  spot: number | null;
-  marked: "model" | "bid" | "cost";
-};
+export type Mark = { value: number; spot: number | null; marked: "model" | "bid" | "cost" };
 
 /**
  * What each position is worth now.
@@ -172,37 +164,86 @@ export function useMarks(positions: RipPosition[], books: LiveBook[], now: numbe
     const marks = new Map<string, Mark>();
     for (const p of positions) {
       const qty = totalQty(p);
-      const tracked = trackedQty(p);
       if (p.source === "demo") {
         const m = demoMark(p.symbol, p.strike, p.expiryTs, now);
-        marks.set(p.id, { value: m.value * qty, trackedValue: m.value * tracked, spot: m.spot, marked: "model" });
+        marks.set(p.id, { value: m.value * qty, spot: m.spot, marked: "model" });
         continue;
       }
       const book = p.series ? bySeries.get(p.series) : undefined;
       if (book?.bestBid) {
-        marks.set(p.id, { value: book.bestBid * qty, trackedValue: book.bestBid * tracked, spot: book.spot, marked: "bid" });
+        marks.set(p.id, { value: book.bestBid * qty, spot: book.spot, marked: "bid" });
       } else {
-        // No bid: known-cost claims at cost, unknown-cost claims unvalued.
-        marks.set(p.id, { value: totalPaid(p), trackedValue: totalPaid(p), spot: book?.spot ?? null, marked: "cost" });
+        marks.set(p.id, { value: totalPaid(p), spot: book?.spot ?? null, marked: "cost" });
       }
     }
     return marks;
   }, [positions, books, now]);
 }
 
-/** Recorded positions, plus whatever the chain says the signer holds beyond them. */
-export function useReconciled(positions: RipPosition[], books: LiveBook[], mode: RipSource, now: number) {
+/** This signer's Rip purchases from the chain; re-read on demand after a buy. */
+export function useRipHistory(mode: RipSource) {
+  const signer = useSigner();
+  const { connection: rollup } = useEphemeral();
+  const [purchases, setPurchases] = useState<ChainPurchase[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const refresh = useCallback(async () => {
+    if (mode !== "live" || !signer) {
+      setPurchases([]);
+      setLoaded(true);
+      return;
+    }
+    try {
+      setPurchases(await loadRipPurchases(rollup, signer));
+    } catch {
+      // Local records still show; the next refresh retries.
+    } finally {
+      setLoaded(true);
+    }
+  }, [mode, rollup, signer]);
+  useEffect(() => {
+    setLoaded(false);
+    void refresh();
+    const t = window.setInterval(() => void refresh(), 30_000);
+    return () => window.clearInterval(t);
+  }, [refresh]);
+  return { purchases, loaded, refresh };
+}
+
+/**
+ * Live positions: Rip purchases from the chain merged with this browser's
+ * records, capped at what the wallet still holds. Demo positions pass through.
+ */
+export function useLivePositions(
+  recorded: RipPosition[],
+  purchases: ChainPurchase[],
+  books: LiveBook[],
+  mode: RipSource,
+  now: number,
+) {
   const signer = useSigner();
   return useMemo(() => {
-    if (mode !== "live" || !signer) return positions;
-    const holdings: Holding[] = books.map((b) => ({
-      series: b.view.address.toBase58(),
-      qty: b.heldBy(signer),
-      spot: b.spot,
-      ...describeSeries(b.view),
-    }));
-    return reconcile(positions, holdings, now);
-  }, [positions, books, mode, signer, now]);
+    if (mode !== "live") return recorded;
+    const byMarket = new Map(books.map((b) => [b.market.toBase58(), b]));
+    const chain: ChainFill[] = [];
+    for (const p of purchases) {
+      const book = byMarket.get(p.market);
+      if (!book) continue;
+      chain.push({
+        series: book.view.address.toBase58(),
+        qty: Number(p.baseAtoms) / 10 ** book.baseDecimals,
+        paid: Number(p.quoteAtoms) / 10 ** book.quoteDecimals,
+        at: p.at,
+        signature: p.signature,
+      });
+    }
+    const info = new Map<string, SeriesInfo>(
+      books.map((b) => [b.view.address.toBase58(), { ...describeSeries(b.view), spot: b.spot }]),
+    );
+    const held = new Map<string, number>(
+      signer ? books.map((b) => [b.view.address.toBase58(), b.heldBy(signer)]) : [],
+    );
+    return mergeLive(recorded, chain, info, held, now);
+  }, [recorded, purchases, books, mode, now, signer]);
 }
 
 export type BuyResult =

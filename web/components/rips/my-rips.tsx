@@ -23,10 +23,9 @@ export function MyRips() {
       const mark = marks.get(p.id);
       acc.paid += totalPaid(p);
       acc.value += mark?.value ?? totalPaid(p);
-      acc.tracked += mark?.trackedValue ?? totalPaid(p);
       return acc;
     },
-    { paid: 0, value: 0, tracked: 0 },
+    { paid: 0, value: 0 },
   );
   const active = positions.filter((p) => p.expiryTs > now);
   const expired = positions.filter((p) => p.expiryTs <= now);
@@ -38,7 +37,7 @@ export function MyRips() {
           ? a.expiryTs - b.expiryTs
           : Math.max(...b.fills.map((f) => f.at)) - Math.max(...a.fills.map((f) => f.at)),
     );
-  const change = pctChange(total.tracked, total.paid);
+  const change = pctChange(total.value, total.paid);
 
   return (
     <div className="pt-8">

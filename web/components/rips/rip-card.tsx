@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { pctChange, ripCount, signedPct, timeLeft, totalPaid, trackedQty, untrackedQty, usd, type RipPosition } from "@/lib/rips/model";
+import { fromElsewhere, pctChange, ripCount, signedPct, timeLeft, totalPaid, usd, type RipPosition } from "@/lib/rips/model";
 import type { Mark } from "@/lib/rips/use-rips";
 import { TickerMark, hueStyle, positionMove } from "./bits";
 
@@ -22,12 +22,9 @@ export function RipCard({
 }) {
   const paid = totalPaid(position);
   const value = mark?.value ?? paid;
-  const costKnown = trackedQty(position) > 0;
-  const change = pctChange(mark?.trackedValue ?? paid, paid);
+  const change = pctChange(value, paid);
   const rips = ripCount(position);
-  const elsewhere = untrackedQty(position) > 1e-9;
-  // With no bid and no known cost there is nothing honest to show as a value.
-  const valueLabel = mark?.marked === "cost" && !costKnown ? "—" : usd(value);
+  const elsewhere = fromElsewhere(position);
   const up = change > 0.5;
   const down = change < -0.5;
   const left = timeLeft(position.expiryTs, now);
@@ -37,7 +34,7 @@ export function RipCard({
       href={`/rips/position?id=${encodeURIComponent(position.id)}`}
       className={`rip-card block ${compact ? "w-[10.5rem] shrink-0 p-4" : "p-5"}`}
       style={hueStyle(position.symbol)}
-      aria-label={`${position.symbol} up ${move}, worth ${valueLabel === "—" ? "unknown" : valueLabel}, ${costKnown ? signedPct(change) : "cost unknown"}, ${left}`}
+      aria-label={`${position.symbol} up ${move}, worth ${usd(value)}, ${signedPct(change)}, ${left}`}
     >
       <div className="flex items-center justify-between gap-2">
         <TickerMark symbol={position.symbol} size={compact ? 30 : 36} />
@@ -51,21 +48,21 @@ export function RipCard({
         <span className="text-muted ml-1 text-[0.7em] font-medium">{move}</span>
       </p>
       <p className={`font-display mt-4 leading-none font-semibold tracking-[-0.04em] tabular-nums ${compact ? "text-[1.6rem]" : "text-[2rem]"}`}>
-        {valueLabel}
+        {usd(value)}
       </p>
       <div className="mt-2 flex items-center justify-between gap-2 text-[0.8125rem] tabular-nums">
-        <span className={!costKnown ? "text-dim" : up ? "text-p font-medium" : down ? "text-danger font-medium" : "text-muted"}>
-          {costKnown ? signedPct(change) : "Cost unknown"}
+        <span className={up ? "text-p font-medium" : down ? "text-danger font-medium" : "text-muted"}>
+          {signedPct(change)}
         </span>
         <span className={left === "Expired" || left.endsWith("h left") || left.endsWith("m left") ? "text-accent-ink" : "text-dim"}>
           {left}
         </span>
       </div>
       {mark?.marked === "cost" && (
-        <p className="text-dim mt-2 text-[0.6875rem] leading-4">No bid yet · {costKnown ? "shown at cost" : "value unknown"}</p>
+        <p className="text-dim mt-2 text-[0.6875rem] leading-4">No bid yet · shown at cost</p>
       )}
       {elsewhere && (
-        <p className="text-dim mt-2 text-[0.6875rem] leading-4">Includes claims bought on another device</p>
+        <p className="text-dim mt-2 text-[0.6875rem] leading-4">Includes Rips from another device</p>
       )}
     </Link>
   );

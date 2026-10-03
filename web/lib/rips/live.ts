@@ -41,6 +41,8 @@ export type LiveBook = {
    * (docs/known-limitations.md), so a trader without one can never fill here.
    */
   hasSeat: (trader: PublicKey) => boolean;
+  baseDecimals: number;
+  quoteDecimals: number;
   /** N claims a trader owns in this market, resting in orders included. */
   heldBy: (trader: PublicKey) => number;
 };
@@ -114,6 +116,8 @@ export async function loadLiveBook(
       asks: levels(loaded, "asks"),
       bestBid: bids.length ? Math.max(...bids.map((b) => b.price)) : null,
       spot,
+      baseDecimals: loaded.baseDecimals(),
+      quoteDecimals: loaded.quoteDecimals(),
       hasSeat: (trader) => loaded.hasSeat(trader),
       heldBy: (trader) => {
         if (!loaded.hasSeat(trader)) return 0;

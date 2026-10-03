@@ -24,7 +24,8 @@ import {
   useRipMode,
   useRipPool,
   useRipPositions,
-  useReconciled,
+  useLivePositions,
+  useRipHistory,
   type LivePoolState,
   type Mark,
 } from "@/lib/rips/use-rips";
@@ -85,7 +86,8 @@ function RipsState({ children }: { children: ReactNode }) {
   const pool = useRipPool();
   const { mode, ready, setMode, canSwitch } = useRipMode(pool.liveLots.length > 0, pool.liveState);
   const { positions: recorded, signer } = useRipPositions(mode);
-  const positions = useReconciled(recorded, pool.books, mode, pool.now);
+  const history = useRipHistory(mode);
+  const positions = useLivePositions(recorded, history.purchases, pool.books, mode, pool.now);
   const other = useStoredPositions(positionsKey(signer?.toBase58() ?? null, mode === "live"));
   const marks = useMarks(positions, pool.books, pool.now);
   const rawBuy = useRipBuy(mode);
@@ -94,6 +96,7 @@ function RipsState({ children }: { children: ReactNode }) {
   // A confirmed purchase changes the wallet and the pool at once; re-read both
   // then rather than waiting for the next poll, so nothing on screen is stale.
   const refreshPool = pool.refresh;
+  const refreshHistory = history.refresh;
   const buy = useMemo<ReturnType<typeof useRipBuy>>(
     () => ({
       ...rawBuy,
@@ -101,12 +104,13 @@ function RipsState({ children }: { children: ReactNode }) {
         const result = await rawBuy.buy(lot, budget, kind);
         if (lot.source === "live") {
           void refreshPool();
+          void refreshHistory();
           await refreshBalance();
         }
         return result;
       },
     }),
-    [rawBuy, refreshBalance, refreshPool],
+    [rawBuy, refreshBalance, refreshPool, refreshHistory],
   );
 
   const value = useMemo<RipsContext>(

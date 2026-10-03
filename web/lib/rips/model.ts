@@ -37,18 +37,15 @@ export type PoolLot = {
   series?: string;
 };
 
-/**
- * One fill against a position: a Rip, a deliberate top-up, or claims the chain
- * says this wallet holds that this browser never recorded buying (bought on
- * another device, or through Pro). Untracked fills carry no cost: what was
- * paid for them is not knowable here, so they are kept out of gain/loss.
- */
+/** One fill against a position: a Rip, or a deliberate top-up. */
 export type RipFill = {
-  kind: "rip" | "buy" | "untracked";
+  kind: "rip" | "buy";
   qty: number;
   paid: number;
   at: number;
   signature?: string;
+  /** Read from the chain with no record in this browser: made on another device. */
+  elsewhere?: boolean;
 };
 
 /** What a user owns. Repeat Rips and top-ups of the same lot merge here. */
@@ -69,11 +66,8 @@ export type RipPosition = {
 };
 
 export const totalQty = (p: RipPosition) => p.fills.reduce((s, f) => s + f.qty, 0);
-/** Claims whose cost is known: everything except untracked fills. */
-export const trackedQty = (p: RipPosition) =>
-  p.fills.reduce((s, f) => s + (f.kind === "untracked" ? 0 : f.qty), 0);
-export const untrackedQty = (p: RipPosition) => totalQty(p) - trackedQty(p);
 export const ripCount = (p: RipPosition) => p.fills.filter((f) => f.kind === "rip").length;
+export const fromElsewhere = (p: RipPosition) => p.fills.some((f) => f.elsewhere);
 export const totalPaid = (p: RipPosition) => p.fills.reduce((s, f) => s + f.paid, 0);
 export const firstAt = (p: RipPosition) => Math.min(...p.fills.map((f) => f.at));
 
@@ -187,52 +181,80 @@ export function addFill(
   return { positions: [position, ...positions], position };
 }
 
-/** What the chain says a wallet holds in one live market. */
-export type Holding = {
-  series: string;
-  qty: number;
-  symbol: string;
-  name: string;
-  strike: number;
-  expiryTs: number;
-  spot: number | null;
-};
+/** A Rip purchase read from the chain, already in whole units. */
+export type ChainFill = { series: string; qty: number; paid: number; at: number; signature: string };
+
+/** How a series is named and pegged, for a position with no local record. */
+export type SeriesInfo = { symbol: string; name: string; strike: number; expiryTs: number; spot: number | null };
 
 /**
- * Bring recorded positions in line with the chain.
+ * Live positions from the chain, with this browser's records layered on.
  *
- * Records live in one browser; the claims live on chain. Anything held beyond
- * what this browser recorded is added as an untracked fill (or a whole
- * untracked position), so a Rip made elsewhere is never invisible. Never
- * written back to storage: it is recomputed from the chain every time.
+ * The chain is the source of truth for what was bought and paid. Local records
+ * contribute two things the chain cannot: a purchase so recent the history has
+ * not caught up, and whether a $1 purchase was a Rip or a top-up. Anything the
+ * chain shows that this browser never recorded is marked `elsewhere`.
+ *
+ * `held` caps a position at what the wallet still owns, scaling cost with it,
+ * so claims later sold through Pro do not linger here.
  */
-export function reconcile(positions: RipPosition[], holdings: Holding[], nowSecs: number): RipPosition[] {
-  const out = [...positions];
-  for (const h of holdings) {
-    if (h.qty <= 1e-9) continue;
-    const id = `live:${h.series}`;
-    const index = out.findIndex((p) => p.id === id);
-    const recorded = index >= 0 ? trackedQty(out[index]) : 0;
-    const extra = h.qty - recorded;
-    if (extra <= 1e-9) continue;
-    const fill: RipFill = { kind: "untracked", qty: extra, paid: 0, at: 0 };
-    if (index >= 0) {
-      out[index] = { ...out[index], fills: [...out[index].fills, fill] };
-    } else {
-      out.push({
-        id,
-        lotId: h.series,
-        source: "live",
-        symbol: h.symbol,
-        name: h.name,
-        strike: h.strike,
-        spotAtRip: h.spot,
-        expiryTs: h.expiryTs,
-        termDays: termDays(nowSecs, h.expiryTs),
-        series: h.series,
-        fills: [fill],
-      });
+export function mergeLive(
+  recorded: RipPosition[],
+  chain: ChainFill[],
+  info: Map<string, SeriesInfo>,
+  held: Map<string, number>,
+  nowSecs: number,
+): RipPosition[] {
+  const bySeries = new Map<string, RipPosition>();
+  for (const p of recorded) if (p.series) bySeries.set(p.series, { ...p, fills: [...p.fills] });
+  const localSigs = new Set(recorded.flatMap((p) => p.fills.map((f) => f.signature).filter(Boolean) as string[]));
+
+  for (const c of chain) {
+    if (localSigs.has(c.signature)) continue;
+    const fill: RipFill = {
+      kind: c.paid <= RIP_PRICE * 1.01 ? "rip" : "buy",
+      qty: c.qty,
+      paid: c.paid,
+      at: c.at,
+      signature: c.signature,
+      elsewhere: true,
+    };
+    const existing = bySeries.get(c.series);
+    if (existing) {
+      existing.fills.push(fill);
+      continue;
     }
+    const meta = info.get(c.series);
+    if (!meta) continue;
+    bySeries.set(c.series, {
+      id: `live:${c.series}`,
+      lotId: c.series,
+      source: "live",
+      symbol: meta.symbol,
+      name: meta.name,
+      strike: meta.strike,
+      spotAtRip: meta.spot,
+      expiryTs: meta.expiryTs,
+      termDays: termDays(Math.floor(c.at / 1000) || nowSecs, meta.expiryTs),
+      series: c.series,
+      fills: [fill],
+    });
+  }
+
+  const out: RipPosition[] = [];
+  for (const p of bySeries.values()) {
+    p.fills.sort((a, b) => a.at - b.at);
+    const own = p.series !== undefined ? held.get(p.series) : undefined;
+    const qty = totalQty(p);
+    // A purchase can land before the balances are re-read; never cap a
+    // position against a read that may predate its newest fill.
+    const recent = p.fills.some((f) => f.at > nowSecs * 1000 - 120_000);
+    if (own !== undefined && !recent && own + 1e-9 < qty) {
+      if (own <= 1e-9) continue;
+      const k = own / qty;
+      p.fills = p.fills.map((f) => ({ ...f, qty: f.qty * k, paid: f.paid * k }));
+    }
+    out.push(p);
   }
   return out;
 }
