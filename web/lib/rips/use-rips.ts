@@ -56,8 +56,12 @@ export function useNow(intervalMs = 2_000) {
  * exists, and the choice is a per-viewer convenience.
  */
 const MODE_KEY = "erodoro.rips.mode";
-export function useRipMode(liveAvailable: boolean) {
+export function useRipMode(liveAvailable: boolean, liveState: LivePoolState) {
   const [chosen, setChosen] = useState<RipSource | null>(null);
+  // The default when the viewer has not chosen. Decided once, after the pool
+  // has been read, and then held: deciding before the read and correcting
+  // after it flipped the page under a finger already on the button.
+  const [implicit, setImplicit] = useState<RipSource | null>(null);
   useEffect(() => {
     try {
       const v = window.localStorage.getItem(MODE_KEY);
@@ -66,7 +70,11 @@ export function useRipMode(liveAvailable: boolean) {
       // Default below.
     }
   }, []);
-  const mode: RipSource = !IS_DEVNET ? "live" : (chosen ?? (liveAvailable ? "live" : "demo"));
+  useEffect(() => {
+    if (implicit || liveState === "loading") return;
+    setImplicit(liveAvailable ? "live" : "demo");
+  }, [implicit, liveAvailable, liveState]);
+  const resolved: RipSource | null = !IS_DEVNET ? "live" : (chosen ?? implicit);
   const setMode = useCallback((m: RipSource) => {
     setChosen(m);
     try {
@@ -75,7 +83,7 @@ export function useRipMode(liveAvailable: boolean) {
       // Session-only.
     }
   }, []);
-  return { mode, setMode, canSwitch: IS_DEVNET };
+  return { mode: resolved ?? "demo", ready: resolved !== null, setMode, canSwitch: IS_DEVNET };
 }
 
 export type LivePoolState = "loading" | "ready" | "undeployed" | "error";

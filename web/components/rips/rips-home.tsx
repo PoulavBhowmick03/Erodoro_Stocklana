@@ -1,44 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { useConnection } from "@solana/wallet-adapter-react";
+import { useMemo } from "react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
-import { getAssociatedTokenAddressSync } from "@solana/spl-token";
 
-import { QUOTE_MINT } from "@/lib/deployment";
 import { IS_DEVNET } from "@/lib/network-config";
 import { RIP_PRICE, pctChange, signedPct, totalPaid, usd, type PoolLot } from "@/lib/rips/model";
 import { DemoBadge, TickerMark } from "./bits";
 import { RipCard } from "./rip-card";
 import { RipOverlay, useRipFlow } from "./rip-flow";
 import { useRips } from "./rips-shell";
-
-function useUsdcBalance() {
-  const { connection } = useConnection();
-  const { buy } = useRips();
-  const owner = buy.signer;
-  const [balance, setBalance] = useState<number | null>(null);
-  useEffect(() => {
-    if (!owner) {
-      setBalance(null);
-      return;
-    }
-    let live = true;
-    const read = () =>
-      connection
-        .getTokenAccountBalance(getAssociatedTokenAddressSync(QUOTE_MINT, owner), "confirmed")
-        .then((r) => live && setBalance(Number(r.value.uiAmount ?? 0)))
-        .catch(() => live && setBalance(0));
-    void read();
-    const t = window.setInterval(read, 15_000);
-    return () => {
-      live = false;
-      window.clearInterval(t);
-    };
-  }, [connection, owner]);
-  return balance;
-}
 
 /** Ticker chips drifting behind the button: what is in the pool, not which one you get. */
 function PoolDrift({ lots }: { lots: PoolLot[] }) {
@@ -70,16 +41,15 @@ function PoolDrift({ lots }: { lots: PoolLot[] }) {
 }
 
 export function RipsHome() {
-  const { mode, setMode, canSwitch, lots, liveState, positions, marks, now, buy } = useRips();
+  const { mode, modeReady, setMode, canSwitch, lots, liveState, positions, marks, now, buy, balance } = useRips();
   const { stage, rip, close } = useRipFlow();
   const { setVisible } = useWalletModal();
-  const balance = useUsdcBalance();
 
   const ripable = lots.filter((l) => l.availableUsd >= RIP_PRICE * 0.98);
   const poolUsd = ripable.reduce((s, l) => s + l.availableUsd, 0);
-  const needsWallet = mode === "live" && !buy.signer;
+  const needsWallet = modeReady && mode === "live" && !buy.signer;
   const poolEmpty = ripable.length === 0;
-  const loading = mode === "live" && liveState === "loading";
+  const loading = !modeReady || (mode === "live" && liveState === "loading");
 
   const portfolio = positions.reduce(
     (acc, p) => {
@@ -110,7 +80,9 @@ export function RipsHome() {
   return (
     <>
       <div className="flex items-center justify-between gap-3 pt-5 text-sm">
-        {mode === "demo" ? (
+        {!modeReady ? (
+          <span />
+        ) : mode === "demo" ? (
           <DemoBadge />
         ) : (
           <span className="text-muted tabular-nums">
@@ -152,8 +124,8 @@ export function RipsHome() {
             ? "Connect a wallet to Rip. Each Rip buys about $1 of a real position."
             : (why ??
               (mode === "demo"
-                ? `A random simulated position — ${ripable.length} in the demo pool. Nothing is bought.`
-                : `A random live position — ${ripable.length} in the pool, ${usd(poolUsd, 0)} on offer. Revealed after you pay.`))}
+                ? `A random simulated position from the demo pool. Nothing is bought.`
+                : `A random live position from ${usd(poolUsd, 0)} on offer across ${ripable.length} ${ripable.length === 1 ? "market" : "markets"}. Revealed after you pay.`))}
         </p>
         {canSwitch && mode === "live" && (poolEmpty || liveState === "undeployed") && !loading && (
           <button type="button" onClick={() => setMode("demo")} className="text-accent-ink mt-3 text-sm font-medium underline underline-offset-4">

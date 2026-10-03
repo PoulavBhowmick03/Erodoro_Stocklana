@@ -14,7 +14,8 @@ type Sort = "recent" | "value" | "expiry";
  * what it is worth now and how long it has left.
  */
 export function MyRips() {
-  const { positions, marks, now, mode } = useRips();
+  const { positions, marks, now, mode, setMode, canSwitch, otherModeCount } = useRips();
+  const otherLabel = mode === "live" ? "demo" : "live";
   const [sort, setSort] = useState<Sort>("recent");
 
   const total = positions.reduce(
@@ -54,6 +55,21 @@ export function MyRips() {
           </div>
         )}
       </div>
+
+      {canSwitch && otherModeCount > 0 && (
+        // Live and demo Rips are kept apart on purpose: a simulated position
+        // must never sit in the same total as a real one.
+        <p className="text-muted mt-4 text-sm">
+          You also have {otherModeCount} {otherLabel} {otherModeCount === 1 ? "Rip" : "Rips"}, kept separately.{" "}
+          <button
+            type="button"
+            onClick={() => setMode(otherLabel)}
+            className="text-text font-medium underline underline-offset-2"
+          >
+            Show {otherLabel} Rips
+          </button>
+        </p>
+      )}
 
       {positions.length === 0 ? (
         <div className="border-line mt-10 rounded-3xl border border-dashed p-10 text-center">
