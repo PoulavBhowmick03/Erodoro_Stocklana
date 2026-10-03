@@ -121,23 +121,71 @@ function Statement() {
             Eligibility restrictions apply.
           </p>
         </div>
-        <div className="min-w-0 lg:pb-2">
-          <h2 className="kicker">On your terms</h2>
-          <ul className="border-line mt-5 grid grid-cols-2 border-t border-l">
-            {[
-              "Set your cap",
-              "Pick an expiry",
-              "Choose your minimum",
-              "Set a limit price",
-            ].map((title) => (
-              <li key={title} className="border-line hover:bg-panel flex min-h-28 min-w-0 items-end border-r border-b p-4 transition-colors sm:min-h-32 sm:p-5">
-                <h3 className="display-3 text-[1.35rem] sm:text-[1.65rem]">{title}</h3>
-              </li>
-            ))}
-          </ul>
-        </div>
+        <RipTeaser />
       </div>
     </section>
+  );
+}
+
+/**
+ * Market Rip, introduced in the hero's own print language.
+ *
+ * Static on purpose: this page renders without a wallet, an RPC or a chain
+ * read, so it shows no tickers or prices -- an example that looked live would
+ * be a number nobody can check. The pack face is a question mark because that
+ * is the product: what you get is revealed after you pay.
+ */
+function RipTeaser() {
+  return (
+    <div className="min-w-0 lg:pb-2" data-rip-teaser>
+      <h2 className="kicker">Market Rip</h2>
+      <div className="border-line mt-5 grid grid-cols-[minmax(0,8.5rem)_1fr] border-t border-l sm:grid-cols-[minmax(0,10.5rem)_1fr]">
+        {/* The pack: a hairline sleeve with a perforated strip. */}
+        <div className="border-line flex items-center justify-center border-r border-b p-4 sm:p-5">
+          <div aria-hidden className="border-text relative flex aspect-[5/7] w-full flex-col border">
+            <div className="border-text flex h-[18%] items-center justify-end border-b border-dashed px-2">
+              <span className="label-mono text-dim text-[0.625rem] tracking-[0.12em]">TEAR</span>
+            </div>
+            <div className="flex flex-1 flex-col items-center justify-center gap-1">
+              <span className="display-3 leading-none" style={{ fontSize: "clamp(2.75rem, 4vw, 3.5rem)" }}>?</span>
+              <span className="label-mono text-accent-ink text-[0.6875rem] tracking-[0.16em]">↑ UP</span>
+            </div>
+            <div className="border-line flex items-center justify-between border-t px-2 py-1.5">
+              <span className="label-mono text-[0.6875rem] tracking-[0.1em]">RIP</span>
+              <span className="label-mono text-[0.6875rem] tracking-[0.1em]">$1</span>
+            </div>
+          </div>
+        </div>
+        <div className="border-line flex min-w-0 flex-col justify-end border-r border-b p-4 sm:p-5">
+          <h3 className="display-3 text-[1.6rem] sm:text-[2rem]">$1. Pull a move.</h3>
+          <p className="text-muted prose-editorial mt-3 text-[0.9375rem] leading-6">
+            One tap buys about a dollar of a real upside position, picked at random from what sellers are offering.
+          </p>
+        </div>
+        <ol className="col-span-2 grid grid-cols-3">
+          {[
+            ["Tap", "Spend $1"],
+            ["Reveal", "See what you pulled"],
+            ["Watch", "It moves with the market"],
+          ].map(([step, line], i) => (
+            <li key={step} className="border-line min-w-0 border-r border-b p-3 sm:p-4">
+              <span className="label-mono text-dim text-[0.6875rem] tracking-[0.12em]">0{i + 1}</span>
+              <p className="display-3 mt-1 text-[1.2rem] sm:text-[1.35rem]">{step}</p>
+              <p className="text-muted prose-editorial mt-1 text-[0.8125rem] leading-5">{line}</p>
+            </li>
+          ))}
+        </ol>
+      </div>
+      <div className="mt-4 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
+        <p className="text-muted prose-editorial text-[0.8125rem]">A real position, not points. It can expire worth nothing.</p>
+        <Link
+          href="/market-rip"
+          className="text-accent-ink label-mono text-[0.75rem] tracking-[0.1em] uppercase underline underline-offset-4"
+        >
+          Pull your first Rip →
+        </Link>
+      </div>
+    </div>
   );
 }
 
