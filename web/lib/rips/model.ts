@@ -37,9 +37,14 @@ export type PoolLot = {
   series?: string;
 };
 
-/** One fill against a position: a Rip, or a deliberate top-up. */
+/**
+ * One fill against a position: a Rip, a deliberate top-up, or claims the chain
+ * says this wallet holds that this browser never recorded buying (bought on
+ * another device, or through Pro). Untracked fills carry no cost: what was
+ * paid for them is not knowable here, so they are kept out of gain/loss.
+ */
 export type RipFill = {
-  kind: "rip" | "buy";
+  kind: "rip" | "buy" | "untracked";
   qty: number;
   paid: number;
   at: number;
@@ -64,6 +69,11 @@ export type RipPosition = {
 };
 
 export const totalQty = (p: RipPosition) => p.fills.reduce((s, f) => s + f.qty, 0);
+/** Claims whose cost is known: everything except untracked fills. */
+export const trackedQty = (p: RipPosition) =>
+  p.fills.reduce((s, f) => s + (f.kind === "untracked" ? 0 : f.qty), 0);
+export const untrackedQty = (p: RipPosition) => totalQty(p) - trackedQty(p);
+export const ripCount = (p: RipPosition) => p.fills.filter((f) => f.kind === "rip").length;
 export const totalPaid = (p: RipPosition) => p.fills.reduce((s, f) => s + f.paid, 0);
 export const firstAt = (p: RipPosition) => Math.min(...p.fills.map((f) => f.at));
 
@@ -175,6 +185,56 @@ export function addFill(
     fills: [fill],
   };
   return { positions: [position, ...positions], position };
+}
+
+/** What the chain says a wallet holds in one live market. */
+export type Holding = {
+  series: string;
+  qty: number;
+  symbol: string;
+  name: string;
+  strike: number;
+  expiryTs: number;
+  spot: number | null;
+};
+
+/**
+ * Bring recorded positions in line with the chain.
+ *
+ * Records live in one browser; the claims live on chain. Anything held beyond
+ * what this browser recorded is added as an untracked fill (or a whole
+ * untracked position), so a Rip made elsewhere is never invisible. Never
+ * written back to storage: it is recomputed from the chain every time.
+ */
+export function reconcile(positions: RipPosition[], holdings: Holding[], nowSecs: number): RipPosition[] {
+  const out = [...positions];
+  for (const h of holdings) {
+    if (h.qty <= 1e-9) continue;
+    const id = `live:${h.series}`;
+    const index = out.findIndex((p) => p.id === id);
+    const recorded = index >= 0 ? trackedQty(out[index]) : 0;
+    const extra = h.qty - recorded;
+    if (extra <= 1e-9) continue;
+    const fill: RipFill = { kind: "untracked", qty: extra, paid: 0, at: 0 };
+    if (index >= 0) {
+      out[index] = { ...out[index], fills: [...out[index].fills, fill] };
+    } else {
+      out.push({
+        id,
+        lotId: h.series,
+        source: "live",
+        symbol: h.symbol,
+        name: h.name,
+        strike: h.strike,
+        spotAtRip: h.spot,
+        expiryTs: h.expiryTs,
+        termDays: termDays(nowSecs, h.expiryTs),
+        series: h.series,
+        fills: [fill],
+      });
+    }
+  }
+  return out;
 }
 
 /** The Level 2 sentence. */

@@ -24,6 +24,7 @@ import {
   useRipMode,
   useRipPool,
   useRipPositions,
+  useReconciled,
   type LivePoolState,
   type Mark,
 } from "@/lib/rips/use-rips";
@@ -83,7 +84,8 @@ function useUsdcBalance(owner: PublicKey | null) {
 function RipsState({ children }: { children: ReactNode }) {
   const pool = useRipPool();
   const { mode, ready, setMode, canSwitch } = useRipMode(pool.liveLots.length > 0, pool.liveState);
-  const { positions, signer } = useRipPositions(mode);
+  const { positions: recorded, signer } = useRipPositions(mode);
+  const positions = useReconciled(recorded, pool.books, mode, pool.now);
   const other = useStoredPositions(positionsKey(signer?.toBase58() ?? null, mode === "live"));
   const marks = useMarks(positions, pool.books, pool.now);
   const rawBuy = useRipBuy(mode);

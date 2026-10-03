@@ -15,6 +15,8 @@ import {
   timeLeft,
   totalPaid,
   totalQty,
+  trackedQty,
+  untrackedQty,
   upsideAtExpiry,
   usd,
   type RipPosition,
@@ -33,10 +35,12 @@ const AMOUNTS = [1, 5, 20];
 function PayoffChart({ position, spot }: { position: RipPosition; spot: number | null }) {
   const qty = totalQty(position);
   const paid = totalPaid(position);
+  const tracked = trackedQty(position);
   const k = position.strike;
-  const breakeven = k + paid / Math.max(qty, 1e-12);
+  // Break-even only means something for claims whose cost is known.
+  const breakeven = tracked > 0 ? k + paid / tracked : null;
   const lo = Math.min(k * 0.88, (spot ?? k) * 0.97);
-  const hi = Math.max(breakeven * 1.08, k * 1.15, (spot ?? k) * 1.03);
+  const hi = Math.max((breakeven ?? k) * 1.08, k * 1.15, (spot ?? k) * 1.03);
   const W = 320;
   const H = 150;
   const pad = { l: 8, r: 8, t: 14, b: 26 };
@@ -46,10 +50,14 @@ function PayoffChart({ position, spot }: { position: RipPosition; spot: number |
   const path = `M ${x(lo)} ${y(0)} L ${x(k)} ${y(0)} L ${x(hi)} ${y(maxV)}`;
   return (
     <figure className="mt-4">
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label={`Value at expiry: zero below ${usd(k)}, rising above it. Break-even at ${usd(breakeven)}.`}>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label={`Value at expiry: zero below ${usd(k)}, rising above it.${breakeven ? ` Break-even at ${usd(breakeven)}.` : ""}`}>
         <line x1={pad.l} x2={W - pad.r} y1={y(0)} y2={y(0)} stroke="var(--color-line)" />
-        <line x1={pad.l} x2={W - pad.r} y1={y(paid)} y2={y(paid)} stroke="var(--color-line)" strokeDasharray="2 4" />
-        <text x={W - pad.r} y={y(paid) - 4} textAnchor="end" fontSize="9" fill="var(--color-dim)">paid {usd(paid)}</text>
+        {paid > 0 && (
+          <>
+            <line x1={pad.l} x2={W - pad.r} y1={y(paid)} y2={y(paid)} stroke="var(--color-line)" strokeDasharray="2 4" />
+            <text x={W - pad.r} y={y(paid) - 4} textAnchor="end" fontSize="9" fill="var(--color-dim)">paid {usd(paid)}</text>
+          </>
+        )}
         <path d={path} fill="none" stroke="var(--rip-hue)" strokeWidth="3" strokeLinejoin="round" />
         <line x1={x(k)} x2={x(k)} y1={pad.t} y2={y(0)} stroke="var(--color-dim)" strokeDasharray="3 3" />
         <text x={x(k)} y={H - 8} textAnchor="middle" fontSize="10" fill="var(--color-muted)">{usd(k)}</text>
@@ -63,7 +71,7 @@ function PayoffChart({ position, spot }: { position: RipPosition; spot: number |
       </svg>
       <figcaption className="text-dim mt-1 flex justify-between text-[0.75rem]">
         <span>Value at expiry by {position.symbol} price</span>
-        <span>Break-even {usd(breakeven)}</span>
+        {breakeven && <span>Break-even {usd(breakeven)}</span>}
       </figcaption>
     </figure>
   );
@@ -96,7 +104,11 @@ export function RipDetail() {
   const paid = totalPaid(position);
   const qty = totalQty(position);
   const value = mark?.value ?? paid;
-  const change = pctChange(value, paid);
+  const tracked = trackedQty(position);
+  const elsewhere = untrackedQty(position);
+  const costKnown = tracked > 0;
+  const valueUnknown = mark?.marked === "cost" && !costKnown;
+  const change = pctChange(mark?.trackedValue ?? paid, paid);
   const spot = mark?.spot ?? null;
   const move = positionMove(position);
   const expired = position.expiryTs <= now;
@@ -145,13 +157,24 @@ export function RipDetail() {
         </div>
         <div className="mt-6 flex items-end justify-between gap-4">
           <div>
-            <p className="font-display text-5xl font-semibold tracking-[-0.05em] tabular-nums">{usd(value)}</p>
+            <p className="font-display text-5xl font-semibold tracking-[-0.05em] tabular-nums">{valueUnknown ? "—" : usd(value)}</p>
             <p className="mt-1 text-sm tabular-nums">
-              <span className={change > 0.5 ? "text-p font-medium" : change < -0.5 ? "text-danger font-medium" : "text-muted"}>
-                {signedPct(change)}
-              </span>
-              <span className="text-dim"> · paid {usd(paid)}</span>
+              {costKnown ? (
+                <>
+                  <span className={change > 0.5 ? "text-p font-medium" : change < -0.5 ? "text-danger font-medium" : "text-muted"}>
+                    {signedPct(change)}
+                  </span>
+                  <span className="text-dim"> · paid {usd(paid)}</span>
+                </>
+              ) : (
+                <span className="text-dim">Cost unknown</span>
+              )}
             </p>
+            {elsewhere > 1e-9 && (
+              <p className="text-dim mt-1 text-xs">
+                {elsewhere.toLocaleString("en-US", { maximumFractionDigits: 6 })} claims bought on another device · cost not known
+              </p>
+            )}
           </div>
           <p className={`text-right text-sm font-medium ${expired ? "text-accent-ink" : "text-muted"}`}>{timeLeft(position.expiryTs, now)}</p>
         </div>
@@ -172,8 +195,8 @@ export function RipDetail() {
               distance === null ? "—" : distance <= 0 ? "Already above" : `${distance.toFixed(1)}%`,
             ],
             ["Expires", `${shortDate(position.expiryTs)} · ${timeLeft(position.expiryTs, now)}`],
-            ["Paid", usd(paid)],
-            ["Worth now", `${usd(value)}${mark?.marked === "cost" ? " (no bid)" : ""}`],
+            ["Paid", costKnown ? usd(paid) : "Unknown"],
+            ["Worth now", valueUnknown ? "Unknown (no bid)" : `${usd(value)}${mark?.marked === "cost" ? " (no bid)" : ""}`],
           ].map(([k, v]) => (
             <div key={k} className="border-line/70 bg-panel rounded-2xl border px-4 py-3">
               <dt className="text-dim text-xs">{k}</dt>
@@ -277,7 +300,7 @@ export function RipDetail() {
           <dt className="text-dim">Quantity</dt>
           <dd className="tabular-nums">{qty.toLocaleString("en-US", { maximumFractionDigits: 9 })}</dd>
           <dt className="text-dim">Average price</dt>
-          <dd className="tabular-nums">{usd(paid / Math.max(qty, 1e-12), 6)} per claim</dd>
+          <dd className="tabular-nums">{costKnown ? `${usd(paid / tracked, 6)} per claim` : "Unknown"}</dd>
           <dt className="text-dim">Marked at</dt>
           <dd>
             {mark?.marked === "bid"
@@ -302,13 +325,15 @@ export function RipDetail() {
         )}
         <h3 className="text-dim mt-5 text-xs font-semibold tracking-[0.16em] uppercase">Purchases</h3>
         <ul className="mt-2 divide-y divide-[var(--color-line)]">
-          {position.fills.map((f) => (
-            <li key={f.at} className="flex items-center justify-between gap-3 py-2 tabular-nums">
+          {position.fills.map((f, i) => (
+            <li key={`${f.at}-${i}`} className="flex items-center justify-between gap-3 py-2 tabular-nums">
               <span>
-                {f.kind === "rip" ? "Rip" : "Buy more"} · {new Date(f.at).toLocaleString()}
+                {f.kind === "untracked"
+                  ? `${f.qty.toLocaleString("en-US", { maximumFractionDigits: 6 })} claims held on chain, not bought in this browser`
+                  : `${f.kind === "rip" ? "Rip" : "Buy more"} · ${new Date(f.at).toLocaleString()}`}
               </span>
               <span className="flex items-center gap-3">
-                {usd(f.paid)}
+                {f.kind === "untracked" ? "cost unknown" : usd(f.paid)}
                 {f.signature && (
                   <span className="text-dim font-mono text-xs" title="MagicBlock transaction signature">
                     {f.signature.slice(0, 6)}…

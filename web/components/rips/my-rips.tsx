@@ -20,11 +20,13 @@ export function MyRips() {
 
   const total = positions.reduce(
     (acc, p) => {
+      const mark = marks.get(p.id);
       acc.paid += totalPaid(p);
-      acc.value += marks.get(p.id)?.value ?? totalPaid(p);
+      acc.value += mark?.value ?? totalPaid(p);
+      acc.tracked += mark?.trackedValue ?? totalPaid(p);
       return acc;
     },
-    { paid: 0, value: 0 },
+    { paid: 0, value: 0, tracked: 0 },
   );
   const active = positions.filter((p) => p.expiryTs > now);
   const expired = positions.filter((p) => p.expiryTs <= now);
@@ -36,7 +38,7 @@ export function MyRips() {
           ? a.expiryTs - b.expiryTs
           : Math.max(...b.fills.map((f) => f.at)) - Math.max(...a.fills.map((f) => f.at)),
     );
-  const change = pctChange(total.value, total.paid);
+  const change = pctChange(total.tracked, total.paid);
 
   return (
     <div className="pt-8">
@@ -48,10 +50,12 @@ export function MyRips() {
         {positions.length > 0 && (
           <div className="text-right">
             <p className="font-display text-3xl font-semibold tracking-[-0.04em] tabular-nums">{usd(total.value)}</p>
-            <p className="text-sm tabular-nums">
-              <span className={change >= 0 ? "text-p" : "text-danger"}>{signedPct(change)}</span>
-              <span className="text-dim"> on {usd(total.paid)}</span>
-            </p>
+            {total.paid > 0 && (
+              <p className="text-sm tabular-nums">
+                <span className={change >= 0 ? "text-p" : "text-danger"}>{signedPct(change)}</span>
+                <span className="text-dim"> on {usd(total.paid)}</span>
+              </p>
+            )}
           </div>
         )}
       </div>

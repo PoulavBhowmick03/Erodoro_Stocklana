@@ -41,6 +41,8 @@ export type LiveBook = {
    * (docs/known-limitations.md), so a trader without one can never fill here.
    */
   hasSeat: (trader: PublicKey) => boolean;
+  /** N claims a trader owns in this market, resting in orders included. */
+  heldBy: (trader: PublicKey) => number;
 };
 
 export const strikeOf = (view: SeriesView) =>
@@ -113,33 +115,44 @@ export async function loadLiveBook(
       bestBid: bids.length ? Math.max(...bids.map((b) => b.price)) : null,
       spot,
       hasSeat: (trader) => loaded.hasSeat(trader),
+      heldBy: (trader) => {
+        if (!loaded.hasSeat(trader)) return 0;
+        const b = loaded.getBalances(trader);
+        return b.baseWithdrawableBalanceTokens + b.baseOpenOrdersBalanceTokens;
+      },
     };
   } catch {
     return null;
   }
 }
 
-/** A book that can be ripped right now becomes a lot. */
-export function lotFromBook(book: LiveBook, nowSecs: number): PoolLot | null {
-  const { view } = book;
-  const expiryTs = view.config.maturityTs.toNumber();
-  const open = "open" in view.config.status && !view.settlement && expiryTs > nowSecs + 3_600;
-  if (!open || !book.delegated || book.asks.length === 0) return null;
+/** How a series is named and pegged, for lots and for held positions alike. */
+export function describeSeries(view: SeriesView) {
   const asset = marketAsset(view);
   // The devnet collateral's registry name is a disclaimer, not a name; the
   // Rip surfaces carry their own devnet labelling.
   const demoProfile = marketProfileForCollateral(view.config.collateralMint.toBase58());
   return {
-    id: view.address.toBase58(),
-    source: "live",
     symbol: asset.symbol,
     name: demoProfile ? "SOL-linked demo token" : asset.name,
     strike: strikeOf(view),
+    expiryTs: view.config.maturityTs.toNumber(),
+  };
+}
+
+/** A book that can be ripped right now becomes a lot. */
+export function lotFromBook(book: LiveBook, nowSecs: number): PoolLot | null {
+  const { view } = book;
+  const d = describeSeries(view);
+  const open = "open" in view.config.status && !view.settlement && d.expiryTs > nowSecs + 3_600;
+  if (!open || !book.delegated || book.asks.length === 0) return null;
+  return {
+    id: view.address.toBase58(),
+    source: "live",
+    ...d,
     spot: book.spot,
-    expiryTs,
     askPrice: Math.min(...book.asks.map((a) => a.price)),
     availableUsd: book.asks.reduce((s, a) => s + a.price * a.size, 0),
     series: view.address.toBase58(),
   };
 }
-

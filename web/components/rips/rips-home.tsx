@@ -53,11 +53,13 @@ export function RipsHome() {
 
   const portfolio = positions.reduce(
     (acc, p) => {
+      const mark = marks.get(p.id);
       acc.paid += totalPaid(p);
-      acc.value += marks.get(p.id)?.value ?? totalPaid(p);
+      acc.value += mark?.value ?? totalPaid(p);
+      acc.tracked += mark?.trackedValue ?? totalPaid(p);
       return acc;
     },
-    { paid: 0, value: 0 },
+    { paid: 0, value: 0, tracked: 0 },
   );
   const sorted = [...positions].sort((a, b) => Math.max(...b.fills.map((f) => f.at)) - Math.max(...a.fills.map((f) => f.at)));
 
@@ -92,9 +94,11 @@ export function RipsHome() {
         {positions.length > 0 && (
           <Link href="/rips" className="text-muted hover:text-text tabular-nums">
             My Rips <span className="text-text font-medium">{usd(portfolio.value)}</span>{" "}
-            <span className={portfolio.value >= portfolio.paid ? "text-p" : "text-danger"}>
-              {signedPct(pctChange(portfolio.value, portfolio.paid))}
-            </span>
+            {portfolio.paid > 0 && (
+              <span className={portfolio.tracked >= portfolio.paid ? "text-p" : "text-danger"}>
+                {signedPct(pctChange(portfolio.tracked, portfolio.paid))}
+              </span>
+            )}
           </Link>
         )}
       </div>
