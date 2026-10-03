@@ -23,12 +23,40 @@ page.on("pageerror", (error) => {
   if (/hydration failed|server rendered html didn't match/i.test(error.message)) hydrationErrors.push(error.message);
 });
 
+// Market Rip: one dominant action, nothing to choose before it.
+await page.addInitScript(() => {
+  try {
+    localStorage.setItem("erodoro.rips.mode", "demo");
+  } catch {}
+});
+await page.goto(`http://localhost:${PORT}/market-rip`);
+const ripHeading = page.getByRole("heading", { name: "$1. Pull a move." });
+await ripHeading.waitFor({ timeout: 10_000 }).catch(() => {});
+ok(await visible(ripHeading), "home leads with the Rip");
+const ripButton = page.getByRole("button", { name: "RIP $1" });
+await ripButton.waitFor({ timeout: 10_000 });
+ok(await ripButton.isEnabled(), "the demo pool can be ripped without a wallet");
+ok(!(await visible(page.getByText(/strike|order book|expiry/i).first())), "nothing technical is asked before the first Rip");
+await ripButton.click();
+await page.getByText("You pulled", { exact: true }).waitFor({ timeout: 5_000 });
+ok(await visible(page.getByRole("button", { name: /RIP AGAIN/ })), "the reveal offers another Rip");
+ok(await visible(page.getByRole("button", { name: /Buy \$5 more .* UP/ })), "the reveal offers more of the same position");
+await page.getByRole("button", { name: "Done" }).click();
+await page.goto(`http://localhost:${PORT}/rips`);
+const myRips = page.getByRole("heading", { name: "My Rips" });
+await myRips.waitFor({ timeout: 10_000 }).catch(() => {});
+ok(await visible(myRips), "My Rips is its own destination");
+ok((await page.locator("a.rip-card").count()) === 1, "the pulled position is in My Rips");
+await page.locator("a.rip-card").first().click();
+await page.getByText(/You own exposure to/).waitFor({ timeout: 5_000 });
+ok(!(await page.locator("details").first().evaluate((d) => d.open)), "full details start collapsed");
+
 await page.goto(`http://localhost:${PORT}/`);
 ok((await page.locator("[data-landing-wordmark]").textContent()).trim() === "erodoro", "landing header keeps the erodoro wordmark");
 ok(await visible(page.locator("[data-landing-header]").getByText("Built on Solana")), "landing header identifies Solana");
 ok(await visible(page.getByRole("heading", { name: "Make your stocks earn." })), "hero uses the copied Earn headline");
 ok(await visible(page.locator("[data-hero-actions]").getByRole("link", { name: /Explore Earn/ })), "hero opens Earn");
-ok(await visible(page.locator("[data-hero-actions]").getByRole("link", { name: "How it works" })), "hero links to education");
+ok(await visible(page.locator("[data-hero-actions]").getByRole("link", { name: /Explore Rips/ })), "hero opens Rips");
 ok(await visible(page.locator("#risk").getByText("You still bear the downside")), "downside risk is permanently visible");
 ok(await visible(page.locator("#risk").getByText("Issuer controls still apply")), "issuer-control risk is permanently visible");
 ok(await visible(page.getByText("P · Capped equity claim", { exact: true }).first()), "P is defined before the calculator");
@@ -55,13 +83,14 @@ ok(
   "the guide never opens by itself",
 );
 ok(await visible(page.locator('[data-tour="role-choice"]')), "market content is not covered on arrival");
-// It is still reachable, from the menu that was opened just above.
-await page.getByRole("button", { name: "Guide", exact: true }).click();
-const guide = page.getByRole("dialog");
-ok(await visible(guide.getByText("Choose a demo account")), "guide begins with the demo accounts");
-const highlightReady = await page.locator("[data-tour-highlight]").waitFor({ state: "visible", timeout: 3_000 }).then(() => true).catch(() => false);
-ok(highlightReady, "guide highlights a real control");
-await guide.getByRole("button", { name: "Skip" }).click();
+// The guide tours Markets and Portfolio, which the navigation no longer offers.
+ok(!(await visible(page.getByRole("button", { name: "Guide", exact: true }))), "the guide is not offered");
+const appNav = (await page.getByRole("navigation", { name: "App" }).getByRole("link").allInnerTexts()).map((t) => t.trim()).filter(Boolean);
+ok(
+  ["Earn", "Market Rip", "My Rips"].every((t) => appNav.includes(t)) &&
+    !["Auctions", "Markets", "Swap", "Portfolio", "Rewards"].some((t) => appNav.includes(t)),
+  `app navigation offers only Earn and Rips (saw: ${appNav.join(", ")})`,
+);
 await page.locator('[data-tour="test-key-seller"]').click();
 await page.waitForTimeout(500);
 ok(

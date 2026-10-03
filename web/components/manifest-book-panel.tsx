@@ -11,7 +11,6 @@ import {
   MANIFEST_PROGRAM_ID,
   Market,
   OrderType,
-  claimManifestSeatIx,
   delegateManifestTokensIxs,
   loadManifestMarket,
   manifestCancelIx,
@@ -228,6 +227,15 @@ export function ManifestBookPanel({
       // Fresh, not the render's snapshot. A retry after a partial failure has
       // to see what actually landed.
       const { market: live } = await loadManifestMarket(rollup, marketAddress, programId);
+      // Checked before anything is signed. The deployed Manifest build refuses
+      // seat claims while the session is active, so without a seat the order
+      // step can only fail -- and it used to fail after collateral had already
+      // been locked for it.
+      if (!live.hasSeat(publicKey)) {
+        throw new Error(
+          "This wallet has no trading seat on this market. Seats can only be claimed before a market goes live, so it can't place orders here.",
+        );
+      }
       const held = live.getBalances(publicKey);
       // Read off the fresh market rather than the render's snapshot: this
       // function now runs before the component knows the market has loaded.
@@ -321,9 +329,6 @@ export function ManifestBookPanel({
 
         return scopedSend(async () => {
           const ixs: TransactionInstruction[] = [];
-          if (!live.hasSeat(publicKey)) {
-            ixs.push(claimManifestSeatIx(publicKey, marketAddress, programId));
-          }
           ixs.push(
             ...manifestDepositIxs({
               payer: publicKey,

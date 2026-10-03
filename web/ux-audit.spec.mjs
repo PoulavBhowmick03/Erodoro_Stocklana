@@ -34,7 +34,7 @@ const AXE_SOURCE = fs.readFileSync(
 const PORT = 4318;
 const closeServer = await serveStaticExport(PORT);
 const BASE = `http://localhost:${PORT}`;
-const ROUTES = ["/", "/app", "/portfolio", "/mint", "/admin/registry", "/trade/markets"];
+const ROUTES = ["/", "/market-rip", "/rips", "/app", "/portfolio", "/mint", "/admin/registry", "/trade/markets"];
 
 const problems = [];
 const note = (route, kind, detail) => problems.push({ route, kind, detail });
@@ -91,7 +91,9 @@ async function session({ theme, width, height, label }) {
       const disabled = await control.isDisabled().catch(() => true);
       if (disabled) {
         // A disabled control has to say why, or it just looks broken.
-        const why = await control.getAttribute("title");
+        // The tree can change under the loop (a click opens a dialog), so a
+        // control that vanished is skipped rather than timing the run out.
+        const why = await control.getAttribute("title", { timeout: 2_000 }).catch(() => "gone");
         if (!why) note(route, "silent-disabled", `"${(name ?? "").trim().slice(0, 40)}"`);
         continue;
       }

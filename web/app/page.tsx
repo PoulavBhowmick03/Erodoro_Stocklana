@@ -107,10 +107,10 @@ function Statement() {
               Explore Earn <span aria-hidden>↗</span>
             </EarnEntryLink>
             <Link
-              href="#how"
-              className="text-muted hover:text-accent-ink prose-editorial px-2 py-3 text-[0.9375rem] underline underline-offset-4 transition-colors"
+              href="/market-rip"
+              className="border-text text-text hover:bg-text hover:text-bg label-mono inline-flex items-center gap-3 border px-6 py-3.5 tracking-[0.1em] uppercase transition-colors"
             >
-              How it works
+              Explore Rips <span aria-hidden>↗</span>
             </Link>
           </div>
 
@@ -524,11 +524,10 @@ function Footer() {
               read. */}
           <p className="display-2 max-w-[12ch]">Keep the share. Sell the ceiling.</p>
 
-          <div className="mt-12 grid grid-cols-2 gap-8 sm:grid-cols-4">
+          <div className="mt-12 grid grid-cols-2 gap-8 sm:grid-cols-3">
             {[
-              ["Product", [["Earn", "/earn"], ["Markets", "/app"], ["Portfolio", "/portfolio"]]],
+              ["Product", [["Earn", "/earn"], ["Rips", "/market-rip"], ["My Rips", "/rips"]]],
               ["Protocol", [["How it works", "#how"], ["The payoff", "#payoff"], ["Risks", "#risk"]]],
-              ["Sandbox", [["Test assets", "/faucet"], ["List a market", "/create"]]],
               ["Questions", [["FAQ", "#faq"]]],
             ].map(([heading, links]) => (
               <div key={heading as string}>

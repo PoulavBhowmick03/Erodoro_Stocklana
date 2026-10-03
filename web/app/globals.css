@@ -533,3 +533,193 @@
 .wallet-adapter-dropdown-list-item:hover {
   background: var(--color-panel-2) !important;
 }
+
+/* ─── Rips ────────────────────────────────────────────────────────────────
+   The consumer surface. Motion is the product here, so it lives in one place
+   and every piece of it is short: the whole pull is under a second, and
+   reduced-motion users get the same states without the movement. */
+@layer components {
+  .rip-cta {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 999px;
+    background:
+      radial-gradient(120% 90% at 30% 20%, color-mix(in oklab, var(--color-accent) 70%, white) 0%, transparent 55%),
+      var(--color-accent);
+    color: var(--color-ink);
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    box-shadow:
+      0 1px 0 color-mix(in oklab, white 40%, transparent) inset,
+      0 -6px 0 color-mix(in oklab, black 22%, transparent) inset,
+      0 18px 40px color-mix(in oklab, var(--color-accent) 38%, transparent);
+    transition: transform 140ms var(--ease-ui), box-shadow 140ms var(--ease-ui);
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  .rip-cta:not(:disabled):hover {
+    transform: translateY(-2px) scale(1.015);
+  }
+  .rip-cta:not(:disabled):active {
+    transform: translateY(3px) scale(0.97);
+    box-shadow:
+      0 1px 0 color-mix(in oklab, white 30%, transparent) inset,
+      0 -2px 0 color-mix(in oklab, black 22%, transparent) inset,
+      0 8px 20px color-mix(in oklab, var(--color-accent) 30%, transparent);
+  }
+  .rip-cta:disabled {
+    cursor: not-allowed;
+    filter: saturate(0.4);
+    opacity: 0.7;
+  }
+  .rip-cta--hero::after {
+    content: "";
+    position: absolute;
+    inset: -10px;
+    border-radius: inherit;
+    border: 2px solid color-mix(in oklab, var(--color-accent) 40%, transparent);
+    animation: rip-halo 2.4s var(--ease-ui) infinite;
+    pointer-events: none;
+  }
+
+  /* The pool, drifting behind the button. Decorative: the real inventory is
+     described in text for assistive tech. */
+  .rip-marquee {
+    display: flex;
+    width: max-content;
+    gap: 0.75rem;
+    animation: rip-drift 38s linear infinite;
+  }
+  .rip-marquee--reverse {
+    animation-direction: reverse;
+    animation-duration: 46s;
+  }
+
+  .rip-card {
+    position: relative;
+    overflow: hidden;
+    border-radius: 1.25rem;
+    border: 1px solid var(--color-line);
+    background:
+      linear-gradient(160deg, color-mix(in oklab, var(--rip-hue, var(--color-accent)) 14%, var(--color-panel)) 0%, var(--color-panel) 60%);
+    transition: transform 160ms var(--ease-ui), border-color 160ms var(--ease-ui);
+  }
+  a.rip-card:hover {
+    transform: translateY(-3px);
+    border-color: color-mix(in oklab, var(--rip-hue, var(--color-accent)) 60%, var(--color-line));
+  }
+  a.rip-card:active {
+    transform: scale(0.98);
+  }
+
+  /* The pack. A foil sleeve with a perforated top strip that tears away. */
+  .rip-pack {
+    position: relative;
+    width: min(19rem, 78vw);
+    aspect-ratio: 5 / 7;
+    border-radius: 1.4rem;
+    background:
+      linear-gradient(115deg, transparent 30%, color-mix(in oklab, white 35%, transparent) 46%, transparent 60%) 0 0 / 250% 100%,
+      repeating-linear-gradient(135deg, color-mix(in oklab, black 6%, transparent) 0 2px, transparent 2px 9px),
+      linear-gradient(160deg, color-mix(in oklab, var(--color-accent) 80%, white), var(--color-accent) 55%, color-mix(in oklab, var(--color-accent) 70%, black));
+    box-shadow: var(--shadow-pop);
+    color: var(--color-ink);
+  }
+  .rip-pack--charging {
+    animation:
+      rip-shake 420ms var(--ease-ui) infinite,
+      rip-sheen 900ms linear infinite;
+  }
+  .rip-pack__strip {
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 18%;
+    border-radius: 1.4rem 1.4rem 0 0;
+    background: inherit;
+    border-bottom: 2px dashed color-mix(in oklab, var(--color-ink) 55%, transparent);
+  }
+  .rip-pack--torn .rip-pack__strip {
+    animation: rip-tear 260ms cubic-bezier(0.5, 0, 0.75, 0) forwards;
+  }
+  .rip-pack--torn {
+    animation: rip-drop 260ms 120ms cubic-bezier(0.5, 0, 0.75, 0) forwards;
+  }
+
+  .rip-reveal-card {
+    animation: rip-rise 380ms cubic-bezier(0.2, 1.4, 0.4, 1) both;
+  }
+  .rip-reveal-ticker {
+    animation: rip-pop 420ms 90ms cubic-bezier(0.2, 1.6, 0.4, 1) both;
+  }
+  .rip-fade-up {
+    animation: rip-fade 300ms var(--ease-ui) both;
+  }
+  .rip-burst {
+    position: absolute;
+    inset: -20%;
+    border-radius: 50%;
+    background: radial-gradient(circle, color-mix(in oklab, var(--rip-hue, var(--color-accent)) 45%, transparent) 0%, transparent 62%);
+    animation: rip-burst 600ms var(--ease-ui) both;
+    pointer-events: none;
+  }
+}
+
+@keyframes rip-halo {
+  0% { opacity: 0.9; transform: scale(0.96); }
+  70%, 100% { opacity: 0; transform: scale(1.12); }
+}
+@keyframes rip-drift {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+@keyframes rip-shake {
+  0%, 100% { transform: rotate(0) scale(1); }
+  20% { transform: rotate(-2.2deg) scale(1.02); }
+  40% { transform: rotate(2deg) scale(1.025); }
+  60% { transform: rotate(-1.4deg) scale(1.03); }
+  80% { transform: rotate(1deg) scale(1.02); }
+}
+@keyframes rip-sheen {
+  from { background-position: 120% 0, 0 0, 0 0; }
+  to { background-position: -120% 0, 0 0, 0 0; }
+}
+@keyframes rip-tear {
+  to { transform: translate(28%, -160%) rotate(14deg); opacity: 0; }
+}
+@keyframes rip-drop {
+  to { transform: translateY(70%) scale(0.92); opacity: 0; }
+}
+@keyframes rip-rise {
+  from { transform: translateY(40px) scale(0.9); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+@keyframes rip-pop {
+  from { transform: scale(0.4); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+@keyframes rip-fade {
+  from { transform: translateY(8px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+@keyframes rip-burst {
+  from { transform: scale(0.3); opacity: 1; }
+  to { transform: scale(1.3); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rip-marquee,
+  .rip-cta--hero::after,
+  .rip-pack--charging,
+  .rip-pack--torn,
+  .rip-pack--torn .rip-pack__strip,
+  .rip-reveal-card,
+  .rip-reveal-ticker,
+  .rip-fade-up,
+  .rip-burst {
+    animation: none !important;
+  }
+}

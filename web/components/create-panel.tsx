@@ -32,8 +32,10 @@ import { QUOTE_MINT } from "@/lib/deployment";
 import {
   MAGICBLOCK_DELEGATION_PROGRAM_ID,
   MANIFEST_PROGRAM_ID,
+  claimManifestSeatIx,
   createManifestMarketIxs,
   delegateManifestMarketIx,
+  loadManifestMarket,
   manifestMarketPda,
   prepareManifestMarketCustodyIxs,
 } from "@/lib/manifest";
@@ -42,7 +44,7 @@ import {
   waitForManifestBookLive,
 } from "@/lib/manifest-readiness";
 import { useEphemeral } from "@/lib/rollup";
-import { ADMIN_ROLE, TEST_ADDRESSES, type TestRole } from "@/lib/test-wallets";
+import { ADMIN_ROLE, TEST_ADDRESSES, USER_ROLES, testKeypair, type TestRole } from "@/lib/test-wallets";
 import { AmountInput, Button, Panel, TextInput, TxStatus } from "./ui";
 import { useTestWallet } from "./test-wallet";
 import { DevnetSetupProgress } from "./devnet-setup-progress";
@@ -292,6 +294,25 @@ export function CreatePanel() {
           programId: MANIFEST_PROGRAM_ID,
         });
         continue;
+      }
+
+      // Seats can only be claimed on Solana before the book is delegated: the
+      // deployed Manifest build refuses claims while a session is active
+      // (docs/known-limitations.md). Listing without them produces a market
+      // nobody can trade. On devnet the demo traders' keys are in this tab, so
+      // they sign their own claims here; real wallets need the program fix.
+      if (testWalletsEnabled) {
+        const { market: book } = await loadManifestMarket(connection, created.market, MANIFEST_PROGRAM_ID);
+        const traders = USER_ROLES.map(testKeypair).filter(
+          (k): k is NonNullable<typeof k> => !!k && !book.hasSeat(k.publicKey),
+        );
+        if (traders.length) {
+          const seated = await send(async () => ({
+            ixs: traders.map((k) => claimManifestSeatIx(k.publicKey, created.market, MANIFEST_PROGRAM_ID)),
+            signers: traders,
+          }));
+          if (!seated) return false;
+        }
       }
 
       // Keep each mint's custody preparation in its own transaction. The

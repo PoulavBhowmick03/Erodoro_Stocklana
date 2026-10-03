@@ -7,15 +7,43 @@ Wallets, canonical market discovery, Manifest orders, Pyth settlement and
 MagicBlock execution remain Solana integrations.
 
 - `/` — editorial landing page and live strategy discovery.
+- `/market-rip` — **Market Rip**, the buyer experience: one `RIP $1` button that buys about $1
+  of a random upside (N) position from live order-book offers, a short
+  pack-opening reveal, then "Rip again" or "Buy $5 more" of the same position.
+- `/rips`, `/rips/position?id=…` — My Rips cards and position detail
+  (plain-language summary, payoff chart, buy more, full details collapsed).
 - `/earn` — stock, listed terms and premium selection; hands a draft to the
   existing Solana trading ticket for review.
 - `/app`, `/trade/markets` — market filters, favorites and the live order book.
 - `/portfolio` — positions, open orders, execution balances and wallet tokens.
 - `/faucet` — the existing devnet asset workflow in the copied page layout.
-- `/auctions`, `/swap`, `/market-rip`, `/rewards` — copied presentation with
-  explicit unavailable/inactive states. There are no corresponding Solana
-  auction, swap, Rip or rewards integrations; these pages cannot submit those
-  actions. `/buy` and `/sell` redirect to the appropriate swap view.
+- `/auctions`, `/swap`, `/rewards` — copied presentation with explicit
+  unavailable/inactive states. There are no corresponding Solana auction, swap
+  or rewards integrations; these pages cannot submit those actions. `/buy` and
+  `/sell` redirect to the appropriate swap view.
+
+### Rips
+
+There is no Rip contract. A live Rip picks a lot at random, weighted by the
+dollars currently offered, then runs the trading ticket's own flow (delegate
+USDC if needed, seat + deposit + order on MagicBlock) with an
+immediate-or-cancel bid at the worst ask the $1 walk touched. The seller is
+paid by that match, and the fill is read back from the market rather than
+assumed. Rips are UP-only: P keeps the full downside, so it is never offered as
+a "down" pull.
+
+Mainnet shows live tokenized-stock series only. Devnet also has a **demo pool**
+(SOL, BTC, ETH, JUP, JTO, BONK) with simulated prices and model values, labelled
+as simulated everywhere it appears. Nothing is signed in the demo pool. Rip
+records (lot, cost, signature) are kept in this browser's `localStorage`, so
+positions bought elsewhere don't appear in My Rips.
+
+**Seats.** The deployed Manifest build only accepts seat claims before a book is
+delegated. On devnet, listing from `/admin/registry` claims seats for the demo
+seller and buyer before delegating, so markets it lists are tradeable by them.
+A wallet without a seat sees the market but is told it can't trade there —
+both Rips (which leaves such books out of its pool) and the Pro ticket check
+before anything is signed. Seats for arbitrary wallets need the program fix.
 
 The app prerenders to `out/` for static hosting. No contract deployment is
 required by this UI change.

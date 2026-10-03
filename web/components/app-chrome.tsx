@@ -29,7 +29,17 @@ const TABS: NavItem[] = [
   { href: "/swap", label: "Swap" },
   { href: "/portfolio", label: "Portfolio" },
   { href: "/rewards", label: "Rewards" },
+  { href: "/rips", label: "My Rips" },
 ];
+/**
+ * What the navigation shows. The product is Earn and Rips; the other routes
+ * still work by URL and from inside those flows, but are not offered as
+ * destinations. "Get test assets" stays on devnet because Earn cannot be
+ * tried without collateral.
+ */
+const VISIBLE = new Set(["/earn", "/market-rip", "/rips", "/faucet"]);
+/** The guide tours Markets and Portfolio, which the navigation no longer offers. */
+const SHOW_GUIDE = false;
 const TESTNET_TABS: NavItem[] = [{ href: "/faucet", label: "Get test assets" }];
 
 /** Base's visual shell, connected to this build's verified Solana network. */
@@ -57,7 +67,7 @@ export function AppChrome({
       : pathname === "/mint"
         ? "/faucet"
         : pathname);
-  const tabs = [...TABS, ...(IS_DEVNET ? TESTNET_TABS : [])];
+  const tabs = [...TABS, ...(IS_DEVNET ? TESTNET_TABS : [])].filter((t) => VISIBLE.has(t.href));
   const selectRole = (href: string) => {
     if (href === "/earn") setRole("seller");
   };
@@ -94,7 +104,7 @@ export function AppChrome({
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            {IS_DEVNET && <TourButton />}
+            {IS_DEVNET && SHOW_GUIDE && <TourButton />}
             <span
               aria-label="App network"
               className="border-line bg-bg text-text rounded-sm border px-2 py-2 text-xs"
@@ -146,7 +156,7 @@ export function AppChrome({
   );
 }
 
-function WalletMenu({ registry }: { registry: boolean }) {
+export function WalletMenu({ registry }: { registry: boolean }) {
   return (
     <details className="group relative">
       <summary className="border-line text-muted hover:text-text hover:border-text cursor-pointer list-none rounded-sm border px-3 py-2 text-[0.8125rem] whitespace-nowrap transition-colors">
