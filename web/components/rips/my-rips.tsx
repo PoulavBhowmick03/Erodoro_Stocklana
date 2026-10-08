@@ -63,7 +63,9 @@ export function MyRips() {
         // Live and demo Rips are kept apart on purpose: a simulated position
         // must never sit in the same total as a real one.
         <p className="text-muted mt-4 text-sm">
-          You also have {otherModeCount} {otherLabel} {otherModeCount === 1 ? "Rip" : "Rips"}, kept separately.{" "}
+          {/* No count: this browser only knows its own records for the other
+              mode, not what the chain holds, so any number could be wrong. */}
+          You also have {otherLabel} Rips, kept separately.{" "}
           <button
             type="button"
             onClick={() => setMode(otherLabel)}

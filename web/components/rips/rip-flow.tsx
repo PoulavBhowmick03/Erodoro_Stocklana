@@ -18,6 +18,8 @@ import {
 import { DemoBadge, TickerMark, hueStyle, positionMove } from "./bits";
 import { useRips } from "./rips-shell";
 import { ShareSheet } from "./share-card";
+import { DEMO_MODE } from "@/lib/demo-config";
+import { changeDemo } from "@/lib/demo/store";
 
 type Pull = { position: RipPosition; fill: RipFill; lot: PoolLot };
 
@@ -119,8 +121,18 @@ export function RipOverlay({
       role="dialog"
       aria-modal="true"
       aria-label={stage.kind === "revealed" ? "Your Rip" : "Ripping"}
-      className="fixed inset-0 z-[100] flex flex-col items-center justify-center overflow-y-auto bg-[color-mix(in_oklab,var(--color-bg)_88%,transparent)] px-4 py-8 backdrop-blur-md"
+      className="fixed inset-0 z-[100] overflow-hidden bg-[color-mix(in_oklab,var(--color-bg)_88%,transparent)] backdrop-blur-md"
     >
+      {/* Outside the scroller: the glow overflows the card by design, and
+          inside it would stretch the scroll area into empty space. */}
+      {stage.kind === "revealed" && (
+        <div aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <div className="relative h-[48rem] w-[24rem] max-w-full" style={hueStyle(stage.pull.position.symbol)}>
+            <div className="rip-burst" />
+          </div>
+        </div>
+      )}
+      <div className="relative flex h-full flex-col items-center justify-center-safe overflow-y-auto px-4 py-8">
       {(stage.kind === "charging" || stage.kind === "torn") && (
         <div className="flex flex-col items-center" aria-live="polite">
           <div className={`rip-pack ${stage.kind === "charging" ? "rip-pack--charging" : "rip-pack--torn"}`}>
@@ -154,6 +166,12 @@ export function RipOverlay({
           </p>
           <p className="text-dim mt-2 text-xs">Nothing was bought unless it appears in My Rips.</p>
           <div className="mt-6 grid gap-2">
+            {DEMO_MODE && stage.message?.startsWith("Not enough demo USDC") && (
+              <button type="button" className="border-line rounded-full border px-4 py-3 text-sm font-semibold" onClick={() => {
+                changeDemo((s) => ({ ...s, cash: s.cash + 100 }));
+                onRipAgain();
+              }}>Add $100 demo USDC &amp; try again</button>
+            )}
             <button type="button" className="rip-cta h-14 text-lg" onClick={onRipAgain}>
               Try again — $1
             </button>
@@ -180,7 +198,6 @@ export function RipOverlay({
         };
         return (
           <div className="relative flex w-full max-w-sm flex-col items-center" style={hueStyle(position.symbol)}>
-            <div className="rip-burst" aria-hidden />
             <div className="rip-card rip-reveal-card relative w-full p-6 text-center shadow-[var(--shadow-pop)]">
               <p className="text-dim text-xs font-semibold tracking-[0.22em] uppercase">You pulled</p>
               <div className="rip-reveal-ticker mt-5 flex flex-col items-center">
@@ -215,23 +232,32 @@ export function RipOverlay({
               <button type="button" className="rip-cta h-16 text-2xl" onClick={onRipAgain}>
                 RIP AGAIN — $1
               </button>
-              {topUp.kind === "done" ? (
-                <p className="border-p/40 text-p rounded-full border py-3.5 text-center text-sm font-medium">
-                  Added {usd(topUp.added)} · you hold {usd(totalPaid(position))} of {position.symbol} ↑
-                </p>
-              ) : (
+              <div className="grid grid-cols-2 gap-2.5">
+                {topUp.kind === "done" ? (
+                  <p className="border-p/40 text-p col-span-2 rounded-full border py-3.5 text-center text-sm font-medium">
+                    Added {usd(topUp.added)} · you hold {usd(totalPaid(position))} of {position.symbol} ↑
+                  </p>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={!canTopUp || topUp.kind === "busy"}
+                    onClick={() => void doTopUp()}
+                    aria-describedby={!canTopUp ? "topup-why" : undefined}
+                    title={!canTopUp ? `Less than $${BUY_MORE_PRICE} of this position is left in the pool.` : undefined}
+                    className="border-text hover:bg-text hover:text-bg h-14 rounded-full border-2 px-3 text-sm leading-tight font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-current"
+                  >
+                    {topUp.kind === "busy" ? "Buying…" : `Buy $${BUY_MORE_PRICE} more ${position.symbol} UP`}
+                  </button>
+                )}
                 <button
                   type="button"
-                  disabled={!canTopUp || topUp.kind === "busy"}
-                  onClick={() => void doTopUp()}
-                  aria-describedby={!canTopUp ? "topup-why" : undefined}
-                  title={!canTopUp ? `Less than $${BUY_MORE_PRICE} of this position is left in the pool.` : undefined}
-                  className="border-text hover:bg-text hover:text-bg h-14 rounded-full border-2 text-base font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-current"
+                  onClick={() => setShare(true)}
+                  className={`bg-panel-2 border-line hover:border-text h-14 rounded-full border px-3 text-sm font-semibold transition-colors ${topUp.kind === "done" ? "col-span-2" : ""}`}
                 >
-                  {topUp.kind === "busy" ? "Buying…" : `Buy $${BUY_MORE_PRICE} more ${position.symbol} UP`}
+                  Share your pull
                 </button>
-              )}
-              {!canTopUp && (
+              </div>
+              {!canTopUp && topUp.kind !== "done" && (
                 <p id="topup-why" className="text-dim text-center text-xs">
                   Less than ${BUY_MORE_PRICE} of this position is left in the pool.
                 </p>
@@ -242,9 +268,6 @@ export function RipOverlay({
                 </p>
               )}
               <div className="mt-1 flex items-center justify-center gap-5 text-sm">
-                <button type="button" onClick={() => setShare(true)} className="text-text font-medium underline-offset-4 hover:underline">
-                  Share
-                </button>
                 <Link href={`/rips/position?id=${encodeURIComponent(position.id)}`} className="text-muted hover:text-text">
                   Details
                 </Link>
@@ -265,6 +288,7 @@ export function RipOverlay({
           </div>
         );
       })()}
+      </div>
     </div>
   );
 }

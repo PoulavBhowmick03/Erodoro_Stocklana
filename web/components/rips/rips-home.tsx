@@ -1,15 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 
 import { IS_DEVNET } from "@/lib/network-config";
+import { DEMO_MODE } from "@/lib/demo-config";
 import { RIP_PRICE, pctChange, signedPct, totalPaid, usd, type PoolLot } from "@/lib/rips/model";
 import { DemoBadge, TickerMark } from "./bits";
 import { RipCard } from "./rip-card";
 import { RipOverlay, useRipFlow } from "./rip-flow";
 import { useRips } from "./rips-shell";
+import { readShared, type ShareSubject } from "./share-card";
 
 /** Ticker chips drifting behind the button: what is in the pool, not which one you get. */
 function PoolDrift({ lots }: { lots: PoolLot[] }) {
@@ -40,10 +42,40 @@ function PoolDrift({ lots }: { lots: PoolLot[] }) {
   );
 }
 
+/**
+ * Someone opened a friend's shared pull. Show what they pulled and hand over
+ * the same button: the whole point of the link is "your turn".
+ */
+function SharedPull({ pull, onDismiss }: { pull: ShareSubject; onDismiss: () => void }) {
+  return (
+    <div className="border-line bg-panel rip-fade-up relative mt-5 flex items-center gap-3 rounded-2xl border p-3 pr-10 text-left">
+      <TickerMark symbol={pull.symbol} size={40} />
+      <p className="text-sm leading-5">
+        <span className="text-muted">A friend ripped</span>{" "}
+        <span className="font-display font-semibold">
+          {pull.symbol} <span className="text-p">↑</span>
+          {pull.move && ` ${pull.move}`} · {pull.termDays}D
+        </span>
+        <span className="text-muted">{pull.demo ? " in the demo pool" : ""}. Your turn — what will you pull?</span>
+      </p>
+      <button
+        type="button"
+        onClick={onDismiss}
+        aria-label="Dismiss"
+        className="text-dim hover:text-text absolute top-2 right-2 rounded-full px-2 py-1 text-lg leading-none"
+      >
+        ×
+      </button>
+    </div>
+  );
+}
+
 export function RipsHome() {
   const { mode, modeReady, setMode, canSwitch, lots, liveState, positions, marks, now, buy, balance } = useRips();
   const { stage, rip, close } = useRipFlow();
   const { setVisible } = useWalletModal();
+  const [shared, setShared] = useState<ShareSubject | null>(null);
+  useEffect(() => setShared(readShared(window.location.search)), []);
 
   const ripable = lots.filter((l) => l.availableUsd >= RIP_PRICE * 0.98);
   const poolUsd = ripable.reduce((s, l) => s + l.availableUsd, 0);
@@ -84,7 +116,7 @@ export function RipsHome() {
         {!modeReady ? (
           <span />
         ) : mode === "demo" ? (
-          <DemoBadge />
+          <span className="flex flex-wrap items-center gap-2"><DemoBadge />{DEMO_MODE && <span className="text-muted tabular-nums">{usd(balance ?? 0, 2)} demo USDC</span>}</span>
         ) : (
           <span className="text-muted tabular-nums">
             {buy.signer ? (balance === null ? "…" : `${usd(balance, 2)} USDC`) : "Not connected"}
@@ -101,6 +133,8 @@ export function RipsHome() {
           </Link>
         )}
       </div>
+
+      {shared && <SharedPull pull={shared} onDismiss={() => setShared(null)} />}
 
       <section className="pt-10 text-center sm:pt-14" aria-labelledby="rip-title">
         <p className="text-accent-ink text-xs font-semibold tracking-[0.28em] uppercase">Market Rip</p>
@@ -130,6 +164,11 @@ export function RipsHome() {
                 ? `A random simulated position from the demo pool. Nothing is bought.`
                 : `A random live position from ${usd(poolUsd, 0)} on offer across ${ripable.length} ${ripable.length === 1 ? "market" : "markets"}. Revealed after you pay.`))}
         </p>
+        {canSwitch && needsWallet && (
+          <button type="button" onClick={() => setMode("demo")} className="text-accent-ink mt-3 text-sm font-medium underline underline-offset-4">
+            No wallet? Try a free demo Rip
+          </button>
+        )}
         {canSwitch && mode === "live" && (poolEmpty || liveState === "undeployed") && !loading && (
           <button type="button" onClick={() => setMode("demo")} className="text-accent-ink mt-3 text-sm font-medium underline underline-offset-4">
             Try the demo pool
@@ -166,10 +205,10 @@ export function RipsHome() {
         <div className="text-muted mt-3 space-y-2 leading-6">
           <p>
             A Rip spends $1 on a randomly chosen position from the pool. Every position is an upside claim on a{" "}
-            {IS_DEVNET ? "token" : "tokenized stock"}: it pays based on how far the price ends above a set level on a set date.
+            {IS_DEVNET && !DEMO_MODE ? "token" : "tokenized stock"}: it pays based on how far the price ends above a set level on a set date.
           </p>
           <p>
-            You get a real, fractional position bought from a seller who listed it — not points, not an NFT. If the price
+            {mode === "demo" ? "You get a simulated fractional position using demo funds." : "You get a real, fractional position bought from a seller who listed it."} If the price
             finishes below the level, the position expires worth nothing.
           </p>
           <p>Like what you pulled? Buy more of that exact position from its detail page.</p>

@@ -1,9 +1,39 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { hueFor } from "./bits";
 
 export type ShareSubject = { symbol: string; move: string; termDays: number; demo?: boolean };
+
+const SYMBOL = /^[A-Z0-9][A-Z0-9.-]{0,11}$/;
+const MOVE = /^(AT|[+−]\d{1,3}(\.5)?%)$/;
+
+/**
+ * The link a share carries: the pull itself, so whoever opens it lands on
+ * "your friend ripped X -- your turn" instead of a cold page. Only display
+ * text travels; nothing in it is trusted beyond being shown.
+ */
+export function shareLink(s: ShareSubject, origin = window.location.origin) {
+  const q = new URLSearchParams({ r: s.symbol, m: s.move, d: String(s.termDays) });
+  if (s.demo) q.set("demo", "1");
+  return `${origin}/market-rip?${q}`;
+}
+
+/** The pull a shared link describes, or null if the link carries none or was tampered into nonsense. */
+export function readShared(search: string): ShareSubject | null {
+  const q = new URLSearchParams(search);
+  const symbol = q.get("r")?.toUpperCase() ?? "";
+  const move = q.get("m") ?? "";
+  const termDays = Number(q.get("d"));
+  if (!SYMBOL.test(symbol) || (move && !MOVE.test(move)) || !Number.isInteger(termDays) || termDays < 1 || termDays > 400) {
+    return null;
+  }
+  return { symbol, move, termDays, demo: q.get("demo") === "1" };
+}
+
+export const shareText = (s: ShareSubject) =>
+  `I ripped ${s.symbol} ↑${s.move ? ` ${s.move}` : ""} · ${s.termDays}D for $1. Your turn:`;
 
 const W = 1200;
 const H = 675;
@@ -97,16 +127,29 @@ export async function drawShareCard(canvas: HTMLCanvasElement, s: ShareSubject) 
   g.textAlign = "left";
 }
 
-/** Preview plus the three things people actually do with an image. */
+/** Preview plus the things people actually do with a pull: send it, post it, keep it. */
 export function ShareSheet({ subject, onClose }: { subject: ShareSubject; onClose: () => void }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const [url, setUrl] = useState<string | null>(null);
-  const [copied, setCopied] = useState<"idle" | "done" | "failed">("idle");
+  const [file, setFile] = useState<File | null>(null);
+  const [copied, setCopied] = useState<"idle" | "image" | "link" | "failed">("idle");
+  const [canNative, setCanNative] = useState(false);
+
+  const link = shareLink(subject);
+  const text = shareText(subject);
 
   useEffect(() => {
     const c = canvas.current;
     if (!c) return;
-    void drawShareCard(c, subject).then(() => setUrl(c.toDataURL("image/png")));
+    void drawShareCard(c, subject).then(() => {
+      setUrl(c.toDataURL("image/png"));
+      c.toBlob((b) => {
+        if (!b) return;
+        const f = new File([b], `rip-${subject.symbol.toLowerCase()}.png`, { type: "image/png" });
+        setFile(f);
+        setCanNative(typeof navigator.share === "function");
+      }, "image/png");
+    });
   }, [subject]);
 
   useEffect(() => {
@@ -115,22 +158,47 @@ export function ShareSheet({ subject, onClose }: { subject: ShareSubject; onClos
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const copy = async () => {
+  useEffect(() => {
+    if (copied === "idle") return;
+    const t = window.setTimeout(() => setCopied("idle"), 2200);
+    return () => window.clearTimeout(t);
+  }, [copied]);
+
+  // The phone's own share sheet reaches every chat app at once, image and all.
+  const native = async () => {
+    const withImage = file && navigator.canShare?.({ files: [file] });
     try {
-      const blob = await new Promise<Blob | null>((r) => canvas.current?.toBlob(r, "image/png"));
-      if (!blob) throw new Error("no image");
-      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
-      setCopied("done");
+      await navigator.share(withImage ? { files: [file], text: `${text} ${link}` } : { text, url: link });
+    } catch {
+      // Dismissed, or the platform refused the image; the buttons below still work.
+    }
+  };
+
+  const copyImage = async () => {
+    try {
+      if (!file) throw new Error("no image");
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": file })]);
+      setCopied("image");
     } catch {
       setCopied("failed");
     }
   };
 
-  const text = `I ripped ${subject.symbol} ↑ ${subject.move} · ${subject.termDays}D for $1`;
-  const site = typeof window !== "undefined" ? `${window.location.origin}/market-rip` : "";
-  const intent = `https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(site)}`;
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(`${text} ${link}`);
+      setCopied("link");
+    } catch {
+      setCopied("failed");
+    }
+  };
 
-  return (
+  const intent = `https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(link)}`;
+  const secondary = "border-line hover:border-text rounded-full border px-2 py-3 text-center text-sm font-medium whitespace-nowrap transition-colors";
+
+  // Portalled: the reveal overlay's backdrop blur would otherwise become this
+  // sheet's containing block and push it off the top of the screen.
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
@@ -139,7 +207,7 @@ export function ShareSheet({ subject, onClose }: { subject: ShareSubject; onClos
       onClick={onClose}
     >
       <div
-        className="bg-panel border-line rip-fade-up w-full max-w-lg rounded-3xl border p-4 shadow-[var(--shadow-pop)]"
+        className="bg-panel border-line rip-fade-up max-h-full w-full max-w-lg overflow-y-auto rounded-3xl border p-4 shadow-[var(--shadow-pop)]"
         onClick={(e) => e.stopPropagation()}
       >
         <canvas ref={canvas} className="hidden" />
@@ -149,35 +217,43 @@ export function ShareSheet({ subject, onClose }: { subject: ShareSubject; onClos
         ) : (
           <div className="bg-panel-2 aspect-[16/9] w-full animate-pulse rounded-2xl" />
         )}
-        <div className="mt-4 grid grid-cols-3 gap-2">
-          <a
-            href={intent}
-            target="_blank"
-            rel="noreferrer"
-            className="bg-text text-bg rounded-full px-2 py-3 text-center text-sm font-semibold whitespace-nowrap"
-          >
-            Post on X
-          </a>
-          <button
-            type="button"
-            onClick={() => void copy()}
-            className="border-line rounded-full border px-2 py-3 text-sm font-medium whitespace-nowrap"
-          >
-            {copied === "done" ? "Copied" : copied === "failed" ? "Can’t copy" : "Copy"}
-          </button>
-          <a
-            href={url ?? undefined}
-            download={`rip-${subject.symbol.toLowerCase()}.png`}
-            aria-disabled={!url}
-            className="border-line rounded-full border px-2 py-3 text-center text-sm font-medium whitespace-nowrap"
-          >
-            Save
-          </a>
+        <p className="text-muted mt-3 text-center text-xs">Friends who open your link land on your pull, with their own $1 Rip one tap away.</p>
+        <div className="mt-3 grid gap-2">
+          {canNative ? (
+            <button type="button" onClick={() => void native()} className="bg-text text-bg rounded-full px-2 py-3.5 text-center text-base font-semibold">
+              Send to friends
+            </button>
+          ) : (
+            <a href={intent} target="_blank" rel="noreferrer" className="bg-text text-bg rounded-full px-2 py-3.5 text-center text-base font-semibold">
+              Post on X
+            </a>
+          )}
+          <div className="grid grid-cols-3 gap-2">
+            {canNative ? (
+              <a href={intent} target="_blank" rel="noreferrer" className={secondary}>
+                Post on X
+              </a>
+            ) : (
+              <button type="button" onClick={() => void copyImage()} className={secondary}>
+                {copied === "image" ? "Copied" : "Copy image"}
+              </button>
+            )}
+            <button type="button" onClick={() => void copyLink()} className={secondary}>
+              {copied === "link" ? "Copied" : "Copy link"}
+            </button>
+            <a href={url ?? undefined} download={`rip-${subject.symbol.toLowerCase()}.png`} aria-disabled={!url} className={secondary}>
+              Save
+            </a>
+          </div>
+          <p className="text-danger h-4 text-center text-xs" aria-live="polite">
+            {copied === "failed" ? "Your browser blocked the clipboard. Save the image instead." : ""}
+          </p>
         </div>
-        <button type="button" onClick={onClose} className="text-muted hover:text-text mt-3 w-full py-2 text-sm">
+        <button type="button" onClick={onClose} className="text-muted hover:text-text w-full py-2 text-sm">
           Close
         </button>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

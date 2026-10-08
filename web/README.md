@@ -303,3 +303,39 @@ status list says exactly that and should keep saying it until it changes.
 anyone can open a series naming themselves as admin. `useSeries` reads
 `SeriesRecord` for this reason; never switch it to enumerating the `series`
 program's accounts at large.
+
+## Offline stock demo
+
+Run `pnpm dev:demo` (from this directory), then open
+`http://127.0.0.1:3000/market-rip`. `pnpm build:demo` creates a static demo
+export with the usual prebuild checks. Regular `pnpm dev` and `pnpm build`
+keep the existing Solana integration. You can also set
+`NEXT_PUBLIC_DEMO_MODE=true`; this flag is fixed at build time.
+
+The offline demo uses illustrative AAPL, TSLA, NVDA, MSFT, AMZN and GOOGL
+fixtures, a connected demo wallet with $1,000 USDC and 10 units of each stock,
+synthetic bid/ask prices and local execution. It mounts no Solana providers,
+RPC network checks, wallet extensions or signing state. Demo state uses its
+own browser storage key, `erodoro.offline-demo.v1`, separate from live Rips.
+
+Try Rip → reveal → buy more → My Rips → details/share. For the seller flow,
+use Earn → review → place sell order → Portfolio → Open orders. Listing locks
+stock; a simulated counterparty fill credits premium; cancellation returns
+stock. Portfolio also supports selling upside, session deposit/return and
+expiry redemption. Swap rehearses buying and selling the underlying stock.
+Auctions and rewards remain unavailable because the protocol has no such
+products.
+
+Every screen identifies simulated data. The visible Move stock prices panel
+offers +5%, −5% and Reset price buttons for each stock. Changes immediately
+reprice open claims, bids, asks and swap quotes without changing strikes,
+quantities or wallet balances. These price controls currently affect browser
+demo state only; they do not publish quotes on Solana Devnet.
+
+Demo controls can top up cash, set
+cash to zero, reject approvals, simulate network failures, set stock prices,
+advance to expiry, and reset only demo data. Expiry snapshots fix a common
+settlement price for claims in each series. The demo pays simulated USDC for
+redemption; real contracts redeem collateral tokens. Synthetic liquidity,
+local persistence and immediate fills demonstrate UX, not deployed-contract
+behavior. No mainnet or devnet deployment is needed.

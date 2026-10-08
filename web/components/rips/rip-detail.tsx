@@ -7,6 +7,7 @@ import { useState } from "react";
 import { AddressLink } from "@/components/ui";
 import { failureMessage } from "@/components/transaction-progress";
 import { NETWORK } from "@/lib/network-config";
+import { DEMO_MODE } from "@/lib/demo-config";
 import {
   explainPosition,
   pctChange,
@@ -193,9 +194,9 @@ export function RipDetail() {
         {expired ? (
           <p className="text-muted text-sm leading-6">
             This position has expired.{" "}
-            {position.source === "live" ? (
+            {position.source === "live" || DEMO_MODE ? (
               <>
-                Once the series settles, redeem it in{" "}
+                {DEMO_MODE ? "Redeem your simulated payout in " : "Once the series settles, redeem it in "}
                 <Link href="/portfolio" className="text-text underline underline-offset-2">Portfolio</Link>.
               </>
             ) : (
@@ -294,7 +295,7 @@ export function RipDetail() {
           <dd>
             {position.source === "live"
               ? "Settled by the series against its approved oracle after expiry; redeem from Portfolio."
-              : "Demo only — nothing settles on chain."}
+              : DEMO_MODE ? "Redeem simulated USDC from Portfolio after expiry. No on-chain settlement." : "Demo only — nothing settles on chain."}
           </dd>
           <dt className="text-dim">Network</dt>
           <dd>{position.source === "live" ? `Solana ${NETWORK.label} · orders on MagicBlock` : "None (simulated)"}</dd>

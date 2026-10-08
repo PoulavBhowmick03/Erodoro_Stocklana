@@ -15,6 +15,10 @@ import { useTestWallet } from "@/components/test-wallet";
 import { QUOTE_MINT } from "@/lib/deployment";
 import { IS_DEVNET, NETWORK } from "@/lib/network-config";
 import { USER_ROLES } from "@/lib/test-wallets";
+import { DEMO_MODE } from "@/lib/demo-config";
+import { buyStub, markStub, stubLots } from "@/lib/demo/ledger";
+import { changeDemo, useDemoLedger } from "@/lib/demo/store";
+import { DemoHeader, DemoControls } from "@/components/demo/demo-app";
 import type { PoolLot, RipPosition, RipSource } from "@/lib/rips/model";
 import type { LiveBook } from "@/lib/rips/live";
 import { positionsKey, useStoredPositions } from "@/lib/rips/store";
@@ -45,7 +49,7 @@ type RipsContext = {
   otherModeCount: number;
   marks: Map<string, Mark>;
   now: number;
-  buy: ReturnType<typeof useRipBuy>;
+  buy: { buy: ReturnType<typeof useRipBuy>["buy"]; signer: PublicKey | null; flow: Pick<ReturnType<typeof useRipBuy>["flow"], "flow"> };
   /** Wallet USDC; null while unknown or with no signer. */
   balance: number | null;
   refresh: () => Promise<void>;
@@ -136,6 +140,42 @@ function RipsState({ children }: { children: ReactNode }) {
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
+/** The demo mounts no Solana hooks, wallet adapters, RPC checks or signing state. */
+function DemoRipsState({ children }: { children: ReactNode }) {
+  const state = useDemoLedger();
+  const [clock, setClock] = useState(0);
+  useEffect(() => {
+    const tick = () => setClock(Math.floor(Date.now() / 1000));
+    tick();
+    const timer = window.setInterval(tick, 2000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const now = clock + state.offset;
+  const buy: RipsContext["buy"] = {
+    signer: null, flow: { flow: null },
+    buy: async (lot, budget, kind) => {
+      try {
+        let result!: ReturnType<typeof buyStub>;
+        changeDemo((latest) => {
+          result = buyStub(latest, lot.id, budget, kind, Math.floor(Date.now() / 1000) + latest.offset);
+          return result.state;
+        });
+        return { ok: true, position: result.position, fill: result.fill };
+      } catch (error) {
+        return { ok: false, reason: error instanceof Error ? error.message : String(error) };
+      }
+    },
+  };
+  const value: RipsContext = {
+    mode: "demo", modeReady: clock > 0, setMode: () => {}, canSwitch: false,
+    lots: stubLots(state, now), liveLots: [], liveState: "ready", books: [],
+    positions: state.positions, otherModeCount: 0,
+    marks: new Map(state.positions.map((p) => [p.id, markStub(p, state, now)])),
+    now, buy, balance: state.cash, refresh: async () => {},
+  };
+  return <Ctx.Provider value={value}>{clock > 0 ? children : <p role="status" className="p-6 text-sm">Loading demo wallet…</p>}</Ctx.Provider>;
+}
+
 const LINKS = [
   { href: "/market-rip", label: "Rip" },
   { href: "/rips", label: "My Rips" },
@@ -162,7 +202,16 @@ function RipsWalletMenu() {
   return (
     <details ref={menu} className="relative">
       <summary className="border-line hover:border-text cursor-pointer list-none rounded-full border px-3 py-1.5 text-sm whitespace-nowrap">
-        {label} <span aria-hidden>▾</span>
+        {/* "Demo" drops on phones, where the full label pushes the header past the screen edge. */}
+        {role ? (
+          <>
+            <span className="max-sm:hidden">Demo </span>
+            <span className="max-sm:capitalize">{role}</span>
+          </>
+        ) : (
+          label
+        )}{" "}
+        <span aria-hidden>▾</span>
       </summary>
       <div className="border-line bg-panel fixed top-[7.5rem] right-4 z-[80] w-[calc(100vw-2rem)] max-w-[20rem] rounded-2xl border p-4 shadow-[var(--shadow-pop)] sm:absolute sm:top-[calc(100%+0.5rem)] sm:right-0">
         <p className="text-sm font-semibold">Demo accounts</p>
@@ -260,6 +309,13 @@ function Footer() {
 }
 
 export function RipsShell({ children }: { children: ReactNode }) {
+  if (DEMO_MODE) return (
+    <DemoRipsState>
+      <DemoHeader />
+      <main className="mx-auto w-full max-w-3xl flex-1 px-4 pb-16">{children}<DemoControls /></main>
+      <Footer />
+    </DemoRipsState>
+  );
   return (
     <SolanaProvider>
       <RipsState>

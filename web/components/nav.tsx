@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { DEMO_MODE } from "@/lib/demo-config";
 
 export function Nav() {
   return (
@@ -6,6 +7,7 @@ export function Nav() {
       data-landing-header
       className="border-line/80 bg-bg/88 sticky top-0 z-50 border-b backdrop-blur-md"
     >
+      {DEMO_MODE && <p className="border-line border-b px-4 py-2 text-center text-sm">Demo mode · simulated assets, prices and funds · no transactions on chain</p>}
       <nav
         className="mx-auto flex min-h-[4.5rem] max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:flex-nowrap sm:px-6"
         aria-label="Landing"

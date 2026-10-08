@@ -73,6 +73,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html
       lang="en"
+      data-scroll-behavior="smooth"
       data-theme="light"
       // `themeScript` rewrites this attribute before React hydrates, which is
       // the entire point of it. Without this, that deliberate difference is

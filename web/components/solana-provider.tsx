@@ -17,6 +17,8 @@ import { createRpcFallbackFetch } from "@/lib/rpc-fallback";
 import { NetworkBoundary } from "./network-boundary";
 import { installBufferCompat } from "@/lib/buffer-compat";
 import "@solana/wallet-adapter-react-ui/styles.css";
+import { DEMO_MODE } from "@/lib/demo-config";
+import { DemoRoute } from "./demo/demo-app";
 
 /**
  * At module scope, not in an effect: the SDKs encode u64 values while building
@@ -63,6 +65,10 @@ function WalletReconnectGuard({ children }: { children: React.ReactNode }) {
  * only serves to exclude wallets that would otherwise work.
  */
 export function SolanaProvider({ children }: { children: React.ReactNode }) {
+  return DEMO_MODE ? <DemoRoute>{children}</DemoRoute> : <LiveSolanaProvider>{children}</LiveSolanaProvider>;
+}
+
+function LiveSolanaProvider({ children }: { children: React.ReactNode }) {
   const endpoint = useMemo(() => RPC_URL, []);
   const connectionConfig = useMemo<ConnectionConfig>(() => {
     if (!RPC_FALLBACK_URL) return { commitment: "confirmed" };

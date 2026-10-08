@@ -11,7 +11,7 @@
  * real stocks. The UI labels every demo surface as simulated.
  */
 
-import type { PoolLot } from "./model";
+import type { PoolLot } from "./model.ts";
 
 type DemoAsset = { symbol: string; name: string; base: number; vol: number; phase: number };
 
